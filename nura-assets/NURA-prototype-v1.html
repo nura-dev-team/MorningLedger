@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NURA — Prototype v1</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Newsreader:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --nbg:#FAF9F7;--nsurf:#FFFFFF;--nsurf-alt:#F4F3EF;--nborder:#E6E4DE;
+  --nt:#1B1A17;--nt2:#5A5850;--nt3:#8E8B80;--nt4:#B5B2A8;
+  --green:#2E7D56;--green-bg:#EEF7F1;--amber:#B8860B;--amber-bg:#FFF9ED;
+  --orange:#C2652A;--orange-bg:#FFF3EB;--blue:#3366CC;--blue-bg:#EDF3FF;
+  --red:#A63D2F;--r:14px;--r-sm:10px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#E8E6E0;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:'DM Sans',sans-serif;}
+#nura{font-family:'DM Sans',sans-serif;background:var(--nbg);color:var(--nt);width:390px;height:820px;display:flex;flex-direction:column;border-radius:44px;overflow:hidden;position:relative;box-shadow:0 40px 80px rgba(0,0,0,0.18);}
+.scr{display:none;flex:1;overflow-y:auto;padding:20px 16px 92px;}
+.scr.on{display:block;}
+.hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+.htitle{font-family:'Newsreader',serif;font-size:22px;font-weight:400;}
+.bnum{font-family:'Newsreader',serif;font-size:54px;font-weight:400;line-height:1;}
+.lbl{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--nt4);margin-bottom:5px;}
+.card{background:var(--nsurf);border:1px solid var(--nborder);border-radius:var(--r);padding:16px;margin-bottom:11px;}
+.csm{background:var(--nsurf);border:1px solid var(--nborder);border-radius:var(--r-sm);padding:12px 14px;margin-bottom:11px;}
+.note{border-left:3px solid var(--amber);border-radius:0 var(--r-sm) var(--r-sm) 0;padding:11px 13px;margin-bottom:12px;font-size:13px;color:var(--amber);line-height:1.55;background:var(--amber-bg);}
+.bdg{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;}
+.bg{background:var(--green-bg);color:var(--green);}
+.ba{background:var(--amber-bg);color:var(--amber);}
+.bo{background:var(--orange-bg);color:var(--orange);}
+.bb{background:var(--blue-bg);color:var(--blue);}
+.pwrap{background:var(--nsurf-alt);border-radius:6px;height:8px;overflow:hidden;margin:6px 0;}
+.pbar{height:8px;border-radius:6px;}
+.pg{background:var(--green);}
+.po{background:var(--orange);}
+.rw{display:flex;align-items:center;justify-content:space-between;}
+.val{font-size:15px;font-weight:500;color:var(--nt);}
+.vsm{font-size:13px;color:var(--nt2);}
+.pill{display:inline-block;background:var(--nsurf-alt);border:1px solid var(--nborder);border-radius:5px;font-size:10px;font-weight:600;color:var(--nt3);padding:1px 6px;font-family:monospace;}
+.txr{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--nborder);}
+.txr:last-child{border-bottom:none;}
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px;}
+.scell{background:var(--nsurf);border:1px solid var(--nborder);border-radius:var(--r-sm);padding:11px;}
+.slbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--nt4);margin-bottom:3px;}
+.sval{font-family:'Newsreader',serif;font-size:22px;color:var(--nt);}
+.ssub{font-size:11px;color:var(--nt3);margin-top:1px;}
+.acard{background:var(--nsurf);border:1px solid var(--nborder);border-radius:var(--r);padding:16px;margin-bottom:13px;}
+.igrid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:11px 0;}
+.icell{background:var(--nsurf-alt);border-radius:var(--r-sm);padding:9px 11px;}
+.abtn{background:var(--green);color:white;border:none;border-radius:var(--r-sm);padding:11px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;width:100%;cursor:pointer;margin-top:9px;}
+.hbtn{background:transparent;color:var(--nt3);border:1px solid var(--nborder);border-radius:var(--r-sm);padding:9px;font-family:'DM Sans',sans-serif;font-size:13px;width:100%;cursor:pointer;margin-top:5px;}
+.rsel{width:100%;border:1px solid var(--nborder);border-radius:var(--r-sm);padding:9px 11px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--nt2);background:var(--nsurf);margin-top:8px;}
+.wbars{display:flex;align-items:flex-end;gap:5px;height:76px;margin:12px 0;}
+.wcol{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;}
+.wbw{flex:1;display:flex;align-items:flex-end;width:100%;}
+.wb{width:100%;border-radius:3px 3px 0 0;background:var(--nsurf-alt);}
+.wb.cur{background:var(--nt);}
+.wlbl{font-size:10px;color:var(--nt4);}
+.wval{font-size:10px;color:var(--nt2);font-weight:500;}
+.sbar{display:flex;height:12px;border-radius:6px;overflow:hidden;margin:9px 0;}
+.infl{display:flex;gap:7px;align-items:flex-start;padding:5px 0;font-size:13px;color:var(--nt2);line-height:1.5;}
+.dot{width:5px;height:5px;border-radius:50%;background:var(--nt3);margin-top:6px;flex-shrink:0;}
+.shead{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--nt4);margin:14px 0 7px;}
+.logo{font-family:'Newsreader',serif;font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--nt3);}
+.nav{position:absolute;bottom:0;left:0;right:0;background:var(--nsurf);border-top:1px solid var(--nborder);display:flex;padding:10px 0 16px;}
+.ni{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:3px 0;}
+.ni .nl{font-size:9px;font-weight:500;color:var(--nt4);}
+.ni.on .nl{color:var(--nt);}
+.prop-card{background:var(--nsurf);border:1px solid var(--nborder);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:12px;}
+.prop-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.ctab{display:flex;gap:6px;margin-bottom:14px;}
+.ctab-btn{flex:1;padding:7px;border-radius:var(--r-sm);border:1px solid var(--nborder);background:var(--nsurf);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;color:var(--nt3);cursor:pointer;}
+.ctab-btn.on{background:var(--nt);color:white;border-color:var(--nt);}
+</style>
+</head>
+<body>
+<div id="nura">
+
+  <!-- HOME -->
+  <div class="scr on" id="s-home">
+    <div class="hdr"><div class="logo">NURA</div><div style="font-size:12px;color:var(--nt4)">Jan 31, 2026</div></div>
+    <div class="card">
+      <div class="lbl">Prime Cost MTD</div>
+      <div style="display:flex;align-items:baseline;gap:10px">
+        <div class="bnum" style="color:#B8860B">184.4%</div>
+        <span class="bdg ba">Ramp-up</span>
+      </div>
+      <div style="margin-top:5px;font-size:13px;color:var(--nt3)">Target: 62.0%</div>
+    </div>
+    <div class="note">Labor is fixed at $19,053 while revenue ramps. Week 5 hit $5,576 — strongest yet. Prime cost will compress as sales build.</div>
+    <div class="sgrid">
+      <div class="scell"><div class="slbl">Sales MTD</div><div class="sval">$13,213</div><div class="ssub">5 weeks</div></div>
+      <div class="scell"><div class="slbl">Food Budget Left</div><div class="sval" style="color:var(--green)">$3,712</div><div class="ssub">of $7,722</div></div>
+      <div class="scell"><div class="slbl">F&amp;B COGS</div><div class="sval">$5,307</div><div class="ssub">40.2% of sales</div></div>
+      <div class="scell"><div class="slbl">Labor</div><div class="sval">$19,053</div><div class="ssub">144.2% of sales</div></div>
+    </div>
+    <div class="shead">Recent Transactions</div>
+    <div class="csm">
+      <div class="txr"><div><div style="font-size:14px;font-weight:500">Breakthru</div><div style="font-size:12px;color:var(--nt3)">Liquor · Jan 29</div></div><div style="text-align:right"><div style="font-size:14px;font-weight:600">$542.31</div><span class="pill">5217257</span></div></div>
+      <div class="txr"><div><div style="font-size:14px;font-weight:500">Baldor</div><div style="font-size:12px;color:var(--nt3)">Food / meats · Jan 29</div></div><div style="text-align:right"><div style="font-size:14px;font-weight:600">$380.13</div><span class="pill">5217250</span></div></div>
+      <div class="txr"><div><div style="font-size:14px;font-weight:500">Profish</div><div style="font-size:12px;color:var(--nt3)">Seafood · Jan 24</div></div><div style="text-align:right"><div style="font-size:14px;font-weight:600">$327.20</div><span class="pill">5217250</span></div></div>
+      <div class="txr"><div><div style="font-size:14px;font-weight:500">Baldor</div><div style="font-size:12px;color:var(--nt3)">Food · Jan 23</div></div><div style="text-align:right"><div style="font-size:14px;font-weight:600">$432.00</div><span class="pill">5217250</span></div></div>
+      <div class="txr"><div><div style="font-size:14px;font-weight:500">Breakthru</div><div style="font-size:12px;color:var(--nt3)">Liquor · Jan 23</div></div><div style="text-align:right"><div style="font-size:14px;font-weight:600">$410.55</div><span class="pill">5217257</span></div></div>
+    </div>
+    <div class="shead">What You Can Still Influence</div>
+    <div class="csm">
+      <div class="infl"><div class="dot"></div><div>Beverage cost healthy at 15.4% — hold unnecessary orders</div></div>
+      <div class="infl"><div class="dot"></div><div>Operating Supplies $111 over — no new supply orders this week</div></div>
+      <div class="infl"><div class="dot"></div><div>Week 5 pace is strong — maintain momentum through month end</div></div>
+    </div>
+  </div>
+
+  <!-- PRIME COST -->
+  <div class="scr" id="s-prime">
+    <div class="hdr"><div class="htitle">Prime Cost</div><span class="bdg ba">Ramp-up</span></div>
+    <div class="card" style="text-align:center;padding:24px 16px">
+      <div class="lbl">Prime Cost MTD</div>
+      <div class="bnum" style="color:#B8860B;font-size:66px">184.4%</div>
+      <div style="font-size:13px;color:var(--nt3);margin-top:6px">Target 62.0%</div>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-around;margin-bottom:10px">
+        <div style="text-align:center"><div class="lbl">F&amp;B Cost</div><div style="font-family:'Newsreader',serif;font-size:26px">40.2%</div><div style="font-size:11px;color:var(--nt3)">$5,307</div></div>
+        <div style="text-align:center;padding-top:12px;color:var(--nt4);font-size:18px">+</div>
+        <div style="text-align:center"><div class="lbl">Labor</div><div style="font-family:'Newsreader',serif;font-size:26px">144.2%</div><div style="font-size:11px;color:var(--nt3)">$19,053</div></div>
+        <div style="text-align:center;padding-top:12px;color:var(--nt4);font-size:18px">=</div>
+        <div style="text-align:center"><div class="lbl">Combined</div><div style="font-family:'Newsreader',serif;font-size:26px;color:#B8860B">184.4%</div><div style="font-size:11px;color:var(--nt3)">$24,360</div></div>
+      </div>
+      <div class="sbar"><div style="width:21.8%;background:#2E7D56"></div><div style="width:78.2%;background:#B8860B"></div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px">
+        <div style="display:flex;align-items:center;gap:4px"><div style="width:8px;height:8px;border-radius:2px;background:#2E7D56"></div><div style="font-size:11px;color:var(--nt3)">F&amp;B</div></div>
+        <div style="display:flex;align-items:center;gap:4px"><div style="width:8px;height:8px;border-radius:2px;background:#B8860B"></div><div style="font-size:11px;color:var(--nt3)">Labor</div></div>
+      </div>
+    </div>
+    <div class="shead">Weekly Revenue Trend</div>
+    <div class="csm">
+      <div class="wbars">
+        <div class="wcol"><div class="wval">$906</div><div class="wbw"><div class="wb" style="height:13%"></div></div><div class="wlbl">W1</div></div>
+        <div class="wcol"><div class="wval">$1.3k</div><div class="wbw"><div class="wb" style="height:23%"></div></div><div class="wlbl">W2</div></div>
+        <div class="wcol"><div class="wval">$1.9k</div><div class="wbw"><div class="wb" style="height:35%"></div></div><div class="wlbl">W3</div></div>
+        <div class="wcol"><div class="wval">$3.5k</div><div class="wbw"><div class="wb" style="height:62%"></div></div><div class="wlbl">W4</div></div>
+        <div class="wcol"><div class="wval">$5.6k</div><div class="wbw"><div class="wb cur" style="height:100%"></div></div><div class="wlbl">W5 ↑</div></div>
+      </div>
+    </div>
+    <div class="shead">What's Driving This</div>
+    <div class="csm" style="margin-bottom:9px">
+      <div class="infl"><div class="dot"></div><div>Labor ($19,053) is fixed — doesn't move whether you serve 10 or 100 tables</div></div>
+      <div class="infl"><div class="dot"></div><div>Revenue still in ramp-up — Week 5 at $5,576 is the strongest yet</div></div>
+      <div class="infl"><div class="dot"></div><div>Food cost at 83.7% vs 30% target — ordering tightly matters now</div></div>
+    </div>
+    <div class="shead">What You Can Still Influence</div>
+    <div class="csm">
+      <div class="infl"><div class="dot"></div><div>Every dollar of revenue automatically compresses prime cost</div></div>
+      <div class="infl"><div class="dot"></div><div>Beverage is healthy at 15.4% — protect it</div></div>
+    </div>
+  </div>
+
+  <!-- BUDGETS -->
+  <div class="scr" id="s-budgets">
+    <div class="hdr"><div class="htitle">Budgets</div><span class="bdg bo">1 Over</span></div>
+    <div class="note" style="background:var(--orange-bg);border-color:var(--orange);color:var(--orange)">Operating Supplies is $111 over budget. All other categories are under. Beer is untouched.</div>
+    <div class="card"><div class="rw"><div><div class="val">Food Purchases</div><div style="font-size:11px;color:var(--nt3)">GL 5217250</div></div><span class="bdg bg">Under</span></div><div class="pwrap"><div class="pbar pg" style="width:51.9%"></div></div><div class="rw" style="margin-top:3px"><div class="vsm">$4,010 spent</div><div class="vsm" style="color:var(--green)">$3,712 left</div></div><div style="font-size:11px;color:var(--nt4)">of $7,722 · 51.9% used</div></div>
+    <div class="card"><div class="rw"><div><div class="val">Liquor</div><div style="font-size:11px;color:var(--nt3)">GL 5217257</div></div><span class="bdg bg">Under</span></div><div class="pwrap"><div class="pbar pg" style="width:33.1%"></div></div><div class="rw" style="margin-top:3px"><div class="vsm">$1,170 spent</div><div class="vsm" style="color:var(--green)">$2,363 left</div></div><div style="font-size:11px;color:var(--nt4)">of $3,533 · 33.1% used</div></div>
+    <div class="card"><div class="rw"><div><div class="val">Wine</div><div style="font-size:11px;color:var(--nt3)">GL 5217255</div></div><span class="bdg bg">Under</span></div><div class="pwrap"><div class="pbar pg" style="width:4.3%"></div></div><div class="rw" style="margin-top:3px"><div class="vsm">$127 spent</div><div class="vsm" style="color:var(--green)">$2,806 left</div></div><div style="font-size:11px;color:var(--nt4)">of $2,933 · 4.3% used</div></div>
+    <div class="card"><div class="rw"><div><div class="val">Beer</div><div style="font-size:11px;color:var(--nt3)">GL 5217258</div></div><span class="bdg bb">Untouched</span></div><div class="pwrap"><div class="pbar pg" style="width:0%"></div></div><div class="rw" style="margin-top:3px"><div class="vsm">$0 spent</div><div class="vsm" style="color:var(--green)">$1,786 left</div></div><div style="font-size:11px;color:var(--nt4)">of $1,786 · 0% used</div></div>
+    <div class="card" style="border-color:var(--orange)"><div class="rw"><div><div class="val">Operating Supplies</div><div style="font-size:11px;color:var(--nt3)">GL 5217275</div></div><span class="bdg bo">Over</span></div><div class="pwrap"><div class="pbar po" style="width:100%"></div></div><div class="rw" style="margin-top:3px"><div class="vsm">$229 spent</div><div class="vsm" style="color:var(--orange)">-$111 over</div></div><div style="font-size:11px;color:var(--nt4)">of $118 · 194% used</div></div>
+    <div class="card"><div class="rw"><div><div class="val">Uniforms</div><div style="font-size:11px;color:var(--nt3)">GL 5217280</div></div><span class="bdg bg">Under</span></div><div class="pwrap"><div class="pbar pg" style="width:17.9%"></div></div><div class="rw" style="margin-top:3px"><div class="vsm">$35 spent</div><div class="vsm" style="color:var(--green)">$160 left</div></div><div style="font-size:11px;color:var(--nt4)">of $195 · 17.9% used</div></div>
+  </div>
+
+  <!-- APPROVALS -->
+  <div class="scr" id="s-approvals">
+    <div class="hdr"><div class="htitle">Approvals</div><span class="bdg ba">2 Pending</span></div>
+    <div class="acard">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px">
+        <div><div style="font-size:16px;font-weight:600">Baldor</div><div style="font-size:12px;color:var(--nt3)">Food / meats · Jan 29 · <span class="pill">5217250</span></div></div>
+        <div style="font-family:'Newsreader',serif;font-size:24px">$380.13</div>
+      </div>
+      <div class="igrid">
+        <div class="icell"><div class="lbl">Budget Before</div><div class="val" style="margin-top:3px">$4,092</div></div>
+        <div class="icell" style="background:var(--green-bg)"><div class="lbl" style="color:var(--green)">After Approval</div><div class="val" style="margin-top:3px;color:var(--green)">$3,712</div></div>
+        <div class="icell"><div class="lbl">Week 5 Pace</div><div class="val" style="margin-top:3px">$5,576</div></div>
+        <div class="icell"><div class="lbl">Impact</div><div class="val" style="margin-top:3px;color:var(--green)">2.9% of sales</div></div>
+      </div>
+      <button class="abtn" onclick="approveCard(this)">Approve</button>
+      <button class="hbtn">Hold</button>
+    </div>
+    <div class="acard" style="border-color:var(--orange)">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px">
+        <div><div style="font-size:16px;font-weight:600">Alsco</div><div style="font-size:12px;color:var(--nt3)">Operating supplies · Jan 22 · <span class="pill">5217275</span></div></div>
+        <div style="font-family:'Newsreader',serif;font-size:24px;color:var(--orange)">$79.00</div>
+      </div>
+      <div style="background:var(--orange-bg);border-left:3px solid var(--orange);border-radius:0 var(--r-sm) var(--r-sm) 0;padding:9px 12px;margin-bottom:10px;font-size:12px;color:var(--orange)">This will put Operating Supplies $190 over budget. A reason is required.</div>
+      <div class="igrid">
+        <div class="icell"><div class="lbl">Budget Before</div><div class="val" style="margin-top:3px;color:var(--orange)">-$111</div></div>
+        <div class="icell" style="background:var(--orange-bg)"><div class="lbl" style="color:var(--orange)">After Approval</div><div class="val" style="margin-top:3px;color:var(--orange)">-$190</div></div>
+        <div class="icell"><div class="lbl">Week 5 Pace</div><div class="val" style="margin-top:3px">$5,576</div></div>
+        <div class="icell"><div class="lbl">Impact</div><div class="val" style="margin-top:3px;color:var(--orange)">Over budget</div></div>
+      </div>
+      <select class="rsel" id="reason-sel">
+        <option value="">Select a reason to approve...</option>
+        <option>Recurring contract — pre-negotiated</option>
+        <option>One-time exception</option>
+        <option>Vendor issue / price change</option>
+        <option>Custom note...</option>
+      </select>
+      <button class="abtn" style="background:var(--orange)" onclick="approveOverBudget(this)">Approve with Reason</button>
+      <button class="hbtn">Hold</button>
+    </div>
+  </div>
+
+  <!-- LEDGER -->
+  <div class="scr" id="s-ledger">
+    <div class="hdr"><div class="htitle">Ledger</div><span class="bdg bg">$0 Variance</span></div>
+    <div class="sgrid">
+      <div class="scell"><div class="slbl">Invoices</div><div class="sval">16</div><div class="ssub">Jan 2026</div></div>
+      <div class="scell"><div class="slbl">Total Spend</div><div class="sval">$5,571</div><div class="ssub">All coded</div></div>
+      <div class="scell"><div class="slbl">Audit Variance</div><div class="sval" style="color:var(--green)">$0.00</div><div class="ssub">Clean</div></div>
+      <div class="scell"><div class="slbl">Active Vendors</div><div class="sval">6</div><div class="ssub">All active</div></div>
+    </div>
+    <div class="csm">
+      <div class="txr"><div><div style="font-size:14px;font-weight:500">Breakthru</div><div style="font-size:12px;color:var(--nt3)">Liquor · Jan 29</div></div><div style="text-align:right"><div style="font-weight:600">$542.31</div><span class="pill">5217257</span></div></div>
+      <div class="txr"><div><div style="font-size:14px;font-weight:500">Baldor</div><div style="font-size:12px;color:var(--nt3)">Food / meats · Jan 29</div></div><div style="text-align:right"><div style="font-weight:600">$380.13</div><span class="pill">5217250</span></div></div>
+      <div class="txr"><div><div style="font-size:14px;font-weight:500">Profish</div><div style="font-size:12px;color:var(--nt3)">Seafood · Jan 24</div></div><div style="text-align:right"><div style="font-weight:600">$327.20</div><span class="pill">5217250</span></div></div>
+      <div class="txr"><div><div style="font-size:14px;font-weight:500">Baldor</div><div style="font-size:12px;color:var(--nt3)">Food · Jan 23</div></div><div style="text-align:right"><div style="font-weight:600">$432.00</div><span class="pill">5217250</span></div></div>
+      <div class="txr"><div><div style="font-size:14px;font-weight:500">Breakthru</div><div style="font-size:12px;color:var(--nt3)">Liquor · Jan 23</div></div><div style="text-align:right"><div style="font-weight:600">$410.55</div><span class="pill">5217257</span></div></div>
+      <div class="txr"><div><div style="font-size:14px;font-weight:500">Breakthru</div><div style="font-size:12px;color:var(--nt3)">Wine · Jan 23</div></div><div style="text-align:right"><div style="font-weight:600">$126.93</div><span class="pill">5217255</span></div></div>
+      <div class="txr"><div><div style="font-size:14px;font-weight:500">Baldor</div><div style="font-size:12px;color:var(--nt3)">Cheese / garnishes · Jan 22</div></div><div style="text-align:right"><div style="font-weight:600">$163.28</div><span class="pill">5217250</span></div></div>
+      <div class="txr"><div><div style="font-size:14px;font-weight:500">Alsco</div><div style="font-size:12px;color:var(--nt3)">Operating supplies · Jan 22</div></div><div style="text-align:right"><div style="font-weight:600">$64.12</div><span class="pill">5217275</span></div></div>
+      <div class="txr"><div><div style="font-size:14px;font-weight:500">US Foods</div><div style="font-size:12px;color:var(--nt3)">Dry grocery · Jan 15</div></div><div style="text-align:right"><div style="font-weight:600">$312.34</div><span class="pill">5217250</span></div></div>
+      <div class="txr"><div><div style="font-size:14px;font-weight:500">Profish</div><div style="font-size:12px;color:var(--nt3)">Seafood · Jan 15</div></div><div style="text-align:right"><div style="font-weight:600">$254.87</div><span class="pill">5217250</span></div></div>
+      <div class="txr"><div><div style="font-size:14px;font-weight:500">US Foods</div><div style="font-size:12px;color:var(--nt3)">Meat · Jan 13</div></div><div style="text-align:right"><div style="font-weight:600">$283.07</div><span class="pill">5217250</span></div></div>
+      <div class="txr"><div><div style="font-size:14px;font-weight:500">Keany</div><div style="font-size:12px;color:var(--nt3)">Produce / veggies · Jan 6</div></div><div style="text-align:right"><div style="font-weight:600">$564.35</div><span class="pill">5217250</span></div></div>
+      <div class="txr"><div><div style="font-size:14px;font-weight:500">US Foods</div><div style="font-size:12px;color:var(--nt3)">Meat / garnishes · Jan 6</div></div><div style="text-align:right"><div style="font-weight:600">$406.63</div><span class="pill">5217250</span></div></div>
+      <div class="txr"><div><div style="font-size:14px;font-weight:500">Baldor</div><div style="font-size:12px;color:var(--nt3)">Sauce / rice / cheese · Jan 6</div></div><div style="text-align:right"><div style="font-weight:600">$245.47</div><span class="pill">5217250</span></div></div>
+      <div class="txr"><div><div style="font-size:14px;font-weight:500">Profish</div><div style="font-size:12px;color:var(--nt3)">Seafood · Jan 6</div></div><div style="text-align:right"><div style="font-weight:600">$323.41</div><span class="pill">5217250</span></div></div>
+      <div class="txr"><div><div style="font-size:14px;font-weight:500">Alsco</div><div style="font-size:12px;color:var(--nt3)">Operating supplies · Jan 6</div></div><div style="text-align:right"><div style="font-weight:600">$164.88</div><span class="pill">5217275</span></div></div>
+    </div>
+  </div>
+
+  <!-- CONTROLLER -->
+  <div class="scr" id="s-controller">
+    <div class="hdr"><div class="htitle">Controller</div><span class="bdg bb">Donohoe Portfolio</span></div>
+    <div class="sgrid">
+      <div class="scell"><div class="slbl">Properties</div><div class="sval">22</div><div class="ssub">Donohoe total</div></div>
+      <div class="scell"><div class="slbl">Active Pilots</div><div class="sval">1</div><div class="ssub">SYN live</div></div>
+      <div class="scell"><div class="slbl">Needs Attention</div><div class="sval" style="color:var(--orange)">1</div><div class="ssub">Budget over</div></div>
+      <div class="scell"><div class="slbl">Healthy</div><div class="sval" style="color:var(--green)">1</div><div class="ssub">On track</div></div>
+    </div>
+    <div class="ctab">
+      <button class="ctab-btn on" onclick="ctab(this,'overview')">Overview</button>
+      <button class="ctab-btn" onclick="ctab(this,'budgets')">Budgets</button>
+      <button class="ctab-btn" onclick="ctab(this,'export')">Month-End</button>
+    </div>
+    <div id="ct-overview">
+      <div class="shead">Properties</div>
+      <div class="prop-card">
+        <div class="prop-dot" style="background:var(--amber)"></div>
+        <div><div style="font-size:15px;font-weight:600">SYN — DC</div><div style="font-size:12px;color:var(--nt3)">Donohoe · Live pilot · Jan 2026</div></div>
+        <div style="margin-left:auto;text-align:right">
+          <div style="font-family:'Newsreader',serif;font-size:18px;color:var(--amber)">184.4%</div>
+          <div style="font-size:11px;color:var(--nt3)">Prime cost</div>
+          <span class="bdg ba" style="margin-top:3px;display:inline-block">Ramp-up</span>
+        </div>
+      </div>
+      <div class="prop-card" style="opacity:.4">
+        <div class="prop-dot" style="background:var(--nt4)"></div>
+        <div><div style="font-size:15px;font-weight:600;color:var(--nt3)">Property 2</div><div style="font-size:12px;color:var(--nt3)">Donohoe · Not yet onboarded</div></div>
+        <div style="margin-left:auto"><span class="bdg" style="background:var(--nsurf-alt);color:var(--nt4)">Pending</span></div>
+      </div>
+      <div class="prop-card" style="opacity:.4">
+        <div class="prop-dot" style="background:var(--nt4)"></div>
+        <div><div style="font-size:15px;font-weight:600;color:var(--nt3)">Property 3</div><div style="font-size:12px;color:var(--nt3)">Donohoe · Not yet onboarded</div></div>
+        <div style="margin-left:auto"><span class="bdg" style="background:var(--nsurf-alt);color:var(--nt4)">Pending</span></div>
+      </div>
+      <div class="note" style="margin-top:12px">Full 22-property portfolio view unlocks as properties are onboarded. SYN is the live pilot.</div>
+    </div>
+    <div id="ct-budgets" style="display:none">
+      <div class="shead">Budget Authority — SYN</div>
+      <div class="card">
+        <div style="font-size:13px;font-weight:600;margin-bottom:10px">SYN — January 2026</div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--nt3);padding:6px 0;border-bottom:1px solid var(--nborder)"><span>Food Purchases</span><span style="color:var(--green)">$3,712 left</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--nt3);padding:6px 0;border-bottom:1px solid var(--nborder)"><span>Liquor</span><span style="color:var(--green)">$2,363 left</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--nt3);padding:6px 0;border-bottom:1px solid var(--nborder)"><span>Wine</span><span style="color:var(--green)">$2,806 left</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--nt3);padding:6px 0;border-bottom:1px solid var(--nborder)"><span>Beer</span><span style="color:var(--green)">$1,786 left</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--nt3);padding:6px 0;border-bottom:1px solid var(--nborder)"><span>Operating Supplies</span><span style="color:var(--orange)">-$111 over</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--nt3);padding:6px 0"><span>Uniforms</span><span style="color:var(--green)">$160 left</span></div>
+        <hr style="border:none;border-top:1px solid var(--nborder);margin:10px 0">
+        <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:600"><span>Total Spend</span><span>$5,571</span></div>
+      </div>
+    </div>
+    <div id="ct-export" style="display:none">
+      <div class="shead">Month-End Export — SYN</div>
+      <div class="card">
+        <div style="font-size:13px;color:var(--nt2);margin-bottom:14px;line-height:1.6">January 2026 is ready for export. All 16 invoices are coded, audit variance is $0.00.</div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--nt3);padding:6px 0;border-bottom:1px solid var(--nborder)"><span>Invoices coded</span><span style="font-weight:600;color:var(--nt)">16</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--nt3);padding:6px 0;border-bottom:1px solid var(--nborder)"><span>Total spend</span><span style="font-weight:600;color:var(--nt)">$5,571</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--nt3);padding:6px 0;border-bottom:1px solid var(--nborder)"><span>Audit variance</span><span style="font-weight:600;color:var(--green)">$0.00</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--nt3);padding:6px 0"><span>Prime cost</span><span style="font-weight:600;color:var(--amber)">184.4%</span></div>
+        <button class="abtn" style="margin-top:12px">Export GL Report — January 2026</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- NAV -->
+  <div class="nav">
+    <div class="ni on" id="n-home" onclick="go('home')">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 8.5L10 3l7 5.5V17a1 1 0 01-1 1H4a1 1 0 01-1-1V8.5z" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M7.5 18V12h5v6" stroke="currentColor" stroke-width="1.5"/></svg>
+      <div class="nl">Home</div>
+    </div>
+    <div class="ni" id="n-prime" onclick="go('prime')">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 15l4-5 3 3 3-4 4 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div class="nl">Prime Cost</div>
+    </div>
+    <div class="ni" id="n-budgets" onclick="go('budgets')">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="3" y="13" width="3" height="4" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="8.5" y="9" width="3" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="14" y="5" width="3" height="12" rx="1" stroke="currentColor" stroke-width="1.5"/></svg>
+      <div class="nl">Budgets</div>
+    </div>
+    <div class="ni" id="n-approvals" onclick="go('approvals')" style="position:relative">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 4h12a1 1 0 011 1v8a1 1 0 01-1 1H6l-3 3V5a1 1 0 011-1z" stroke="currentColor" stroke-width="1.5"/></svg>
+      <div style="position:absolute;top:3px;right:14px;width:7px;height:7px;border-radius:50%;background:#B8860B"></div>
+      <div class="nl">Approvals</div>
+    </div>
+    <div class="ni" id="n-ledger" onclick="go('ledger')">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M5 4h10a1 1 0 011 1v11a1 1 0 01-1 1H5a1 1 0 01-1-1V5a1 1 0 011-1z" stroke="currentColor" stroke-width="1.5"/><path d="M7 8h6M7 11h6M7 14h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <div class="nl">Ledger</div>
+    </div>
+    <div class="ni" id="n-controller" onclick="go('controller')">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4l3 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <div class="nl">Portfolio</div>
+    </div>
+  </div>
+</div>
+
+<script>
+function go(name){
+  document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
+  document.getElementById('s-'+name).classList.add('on');
+  document.getElementById('n-'+name).classList.add('on');
+}
+function ctab(btn,tab){
+  document.querySelectorAll('.ctab-btn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  ['overview','budgets','export'].forEach(t=>{
+    const el=document.getElementById('ct-'+t);
+    if(el) el.style.display=t===tab?'block':'none';
+  });
+}
+function approveCard(btn){
+  const card=btn.closest('.acard');
+  card.style.opacity='0.4';
+  card.style.pointerEvents='none';
+  const d=document.createElement('div');
+  d.style.cssText='text-align:center;padding:10px;font-size:13px;color:#2E7D56;font-weight:600;';
+  d.textContent='✓ Approved';
+  card.appendChild(d);
+}
+function approveOverBudget(btn){
+  const sel=document.getElementById('reason-sel');
+  if(!sel.value){sel.style.borderColor='#C2652A';return;}
+  approveCard(btn);
+}
+</script>
+</body>
+</html>

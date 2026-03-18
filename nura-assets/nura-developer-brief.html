@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NURA — Developer Brief v1.0</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Newsreader:ital,wght@0,300;0,400;0,500;1,300;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #FAF9F7;
+  --surface: #FFFFFF;
+  --surface-alt: #F4F3EF;
+  --border: #E6E4DE;
+  --text: #1B1A17;
+  --text-2: #5A5850;
+  --text-3: #8E8B80;
+  --text-4: #B5B2A8;
+  --green: #2E7D56;
+  --green-bg: #EEF7F1;
+  --green-border: #C6E8D4;
+  --amber: #B8860B;
+  --amber-bg: #FFF9ED;
+  --amber-border: #F5DFA0;
+  --orange: #C2652A;
+  --orange-bg: #FFF3EB;
+  --red: #A63D2F;
+  --red-bg: #FDF0ED;
+  --blue: #3366CC;
+  --blue-bg: #EDF3FF;
+  --blue-border: #C5D8F5;
+  --code-bg: #1B1A17;
+  --code-text: #E8E4DC;
+  --r: 14px;
+  --r-sm: 10px;
+  --r-lg: 18px;
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 20px rgba(0,0,0,0.07);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+.layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 32px 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-logo {
+  font-family: 'Newsreader', serif;
+  font-size: 13px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--text-3);
+  padding: 0 24px 24px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+}
+
+.sidebar-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-4);
+  padding: 0 24px 10px;
+}
+
+.sidebar-nav a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 24px;
+  font-size: 13px;
+  color: var(--text-2);
+  text-decoration: none;
+  transition: all 0.15s;
+  border-left: 2px solid transparent;
+}
+
+.sidebar-nav a:hover {
+  color: var(--text);
+  background: var(--surface-alt);
+  border-left-color: var(--border);
+}
+
+.sidebar-nav a.active {
+  color: var(--text);
+  background: var(--surface-alt);
+  border-left-color: var(--text);
+  font-weight: 500;
+}
+
+.sidebar-num {
+  font-size: 10px;
+  color: var(--text-4);
+  min-width: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 20px 24px 0;
+  border-top: 1px solid var(--border);
+}
+
+.sidebar-footer p {
+  font-family: 'Newsreader', serif;
+  font-style: italic;
+  font-size: 12px;
+  color: var(--text-4);
+  line-height: 1.5;
+}
+
+/* Main content */
+.main {
+  flex: 1;
+  min-width: 0;
+  padding: 0 60px 120px;
+  max-width: 820px;
+}
+
+/* Cover */
+.cover {
+  padding: 80px 0 64px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 64px;
+}
+
+.cover-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text-4);
+  margin-bottom: 16px;
+}
+
+.cover h1 {
+  font-family: 'Newsreader', serif;
+  font-size: 52px;
+  font-weight: 300;
+  letter-spacing: -1.5px;
+  line-height: 1.1;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+
+.cover-sub {
+  font-size: 17px;
+  color: var(--text-3);
+  margin-bottom: 36px;
+  font-weight: 300;
+}
+
+.cover-meta {
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+
+.meta-chip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  color: var(--text-3);
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  padding: 5px 12px;
+  border-radius: 20px;
+}
+
+.meta-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-4);
+}
+
+/* Sections */
+.section {
+  margin-bottom: 72px;
+  scroll-margin-top: 32px;
+}
+
+.section-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: var(--text-4);
+  margin-bottom: 8px;
+}
+
+h2 {
+  font-family: 'Newsreader', serif;
+  font-size: 34px;
+  font-weight: 300;
+  letter-spacing: -0.8px;
+  color: var(--text);
+  margin-bottom: 6px;
+  line-height: 1.2;
+}
+
+.section-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 20px 0 28px;
+}
+
+h3 {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  color: var(--text);
+  margin: 32px 0 10px;
+}
+
+h4 {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin: 24px 0 8px;
+}
+
+p {
+  font-size: 15px;
+  color: var(--text-2);
+  margin-bottom: 16px;
+  line-height: 1.75;
+}
+
+p strong { color: var(--text); font-weight: 600; }
+
+/* Callouts */
+.callout {
+  padding: 16px 20px;
+  border-radius: var(--r-sm);
+  font-size: 14px;
+  line-height: 1.65;
+  margin: 20px 0;
+  border-left: 3px solid;
+}
+
+.callout.green {
+  background: var(--green-bg);
+  color: var(--green);
+  border-color: var(--green);
+}
+
+.callout.amber {
+  background: var(--amber-bg);
+  color: var(--amber);
+  border-color: var(--amber);
+}
+
+.callout.blue {
+  background: var(--blue-bg);
+  color: var(--blue);
+  border-color: var(--blue);
+}
+
+.callout strong { color: inherit; font-weight: 700; }
+
+/* Code blocks */
+pre {
+  background: var(--code-bg);
+  border-radius: var(--r-sm);
+  padding: 22px 26px;
+  margin: 16px 0;
+  overflow-x: auto;
+}
+
+code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12.5px;
+  color: var(--code-text);
+  line-height: 1.75;
+}
+
+p code, li code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  background: var(--surface-alt);
+  color: var(--text);
+  padding: 2px 7px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+}
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 13.5px;
+}
+
+th {
+  background: var(--surface-alt);
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-3);
+  border-bottom: 1px solid var(--border);
+}
+
+td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-2);
+  vertical-align: top;
+  line-height: 1.5;
+}
+
+tr:last-child td { border-bottom: none; }
+td strong { color: var(--text); font-weight: 600; }
+
+/* Data grid */
+.data-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 24px 0;
+}
+
+.data-cell {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+}
+
+.data-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-4);
+  margin-bottom: 6px;
+}
+
+.data-val {
+  font-size: 22px;
+  font-family: 'Newsreader', serif;
+  color: var(--text);
+  line-height: 1.2;
+  margin-bottom: 3px;
+}
+
+.data-sub {
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.4;
+}
+
+/* Screen cards */
+.screen-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 22px 24px;
+  margin: 14px 0;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.2s;
+}
+
+.screen-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.screen-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.screen-name {
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.screen-q {
+  font-size: 13px;
+  color: var(--text-3);
+  font-style: italic;
+  margin-bottom: 14px;
+}
+
+.screen-items {
+  font-size: 13.5px;
+  color: var(--text-2);
+  padding-left: 18px;
+}
+
+.screen-items li {
+  margin-bottom: 5px;
+  line-height: 1.55;
+}
+
+/* Badges */
+.badge {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 20px;
+  letter-spacing: 0.2px;
+}
+
+.badge.green { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+.badge.amber { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-border); }
+.badge.blue { background: var(--blue-bg); color: var(--blue); border: 1px solid var(--blue-border); }
+.badge.red { background: var(--red-bg); color: var(--red); }
+
+/* Flow steps */
+.flow { display: flex; flex-direction: column; gap: 0; margin: 24px 0; }
+
+.flow-step {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+}
+
+.flow-line {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.flow-num {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flow-connector {
+  width: 1px;
+  height: 28px;
+  background: var(--border);
+  margin: 5px 0;
+}
+
+.flow-content {
+  padding-bottom: 28px;
+  flex: 1;
+}
+
+.flow-title {
+  font-size: 14.5px;
+  font-weight: 650;
+  margin-bottom: 4px;
+  color: var(--text);
+}
+
+.flow-desc {
+  font-size: 13.5px;
+  color: var(--text-2);
+  line-height: 1.65;
+}
+
+/* Lists */
+ul, ol {
+  padding-left: 20px;
+  color: var(--text-2);
+  font-size: 14.5px;
+}
+
+li {
+  margin-bottom: 7px;
+  line-height: 1.65;
+}
+
+li strong { color: var(--text); font-weight: 600; }
+
+/* Page break */
+.page-break {
+  height: 1px;
+  background: var(--border);
+  margin: 56px 0;
+}
+
+/* Quick ref table */
+.quick-ref {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .sidebar { display: none; }
+  .main { padding: 32px 24px 80px; }
+}
+
+@media (max-width: 600px) {
+  .data-grid { grid-template-columns: 1fr; }
+  .cover h1 { font-size: 36px; }
+  h2 { font-size: 26px; }
+}
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">NURA</div>
+    <div class="sidebar-label">Contents</div>
+    <nav class="sidebar-nav">
+      <a href="#s1"><span class="sidebar-num">01</span> What You're Building</a>
+      <a href="#s2"><span class="sidebar-num">02</span> 6 Screens Locked</a>
+      <a href="#s3"><span class="sidebar-num">03</span> Real Data</a>
+      <a href="#s4"><span class="sidebar-num">04</span> Core Workflows</a>
+      <a href="#s5"><span class="sidebar-num">05</span> Waste Log System</a>
+      <a href="#s6"><span class="sidebar-num">06</span> Design System</a>
+      <a href="#s7"><span class="sidebar-num">07</span> Tech Stack</a>
+      <a href="#s8"><span class="sidebar-num">08</span> Database Schema</a>
+      <a href="#s9"><span class="sidebar-num">09</span> Definition of Done</a>
+      <a href="#s10"><span class="sidebar-num">10</span> Design Principles</a>
+    </nav>
+    <div class="sidebar-footer">
+      <p>Daily clarity beats monthly heroics.</p>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- COVER -->
+    <div class="cover">
+      <div class="cover-eyebrow">Developer Brief · Version 1.0</div>
+      <h1>Build NURA.<br>Start here.</h1>
+      <div class="cover-sub">Everything you need to build the first working model</div>
+      <div class="cover-meta">
+        <div class="meta-chip"><div class="meta-dot"></div> March 2026</div>
+        <div class="meta-chip"><div class="meta-dot"></div> Internal · Confidential</div>
+        <div class="meta-chip"><div class="meta-dot"></div> Prepared for Kenyan Roberts</div>
+      </div>
+    </div>
+
+    <!-- SECTION 1 -->
+    <div class="section" id="s1">
+      <div class="section-label">Section 01</div>
+      <h2>What You're Building</h2>
+      <hr class="section-divider">
+
+      <p>NURA is a <strong>real-time financial operating system for hospitality operators</strong>. Restaurants run on 3–5% margins. Prime cost — food, beverage, and labor — eats 60–65% of every dollar. Operators don't see those numbers until month-end, 30 days after the money is already gone.</p>
+
+      <p>The existing tools fall into two buckets: <strong>backward-looking reporting tools</strong> (MarginEdge, xtraCHEF) that explain the past, and <strong>complex enterprise platforms</strong> (Restaurant365) built for finance teams. Neither is designed for an operator on the floor making a real decision at 9am on a Tuesday.</p>
+
+      <p>NURA is the third option — a <strong>real-time decision surface</strong>. An operator opens it and immediately knows: what's been spent, what's left, what's driving risk, and what they can still do about it today. The product is built around one behavioral loop:</p>
+
+      <div class="callout green">
+        <strong>See → Decide → Move on.</strong> That's the entire product philosophy. Every screen, every data point, every interaction must serve that loop. If it doesn't help the operator make a faster, better decision, it doesn't belong.
+      </div>
+
+      <h3>The Context You Need to Know</h3>
+      <p>Keem (the founder) is <strong>Corporate Director of Culinary & Concept Design at Donohoe Hospitality</strong>, a 22-property portfolio. He has been running NURA manually — as a checkbook spreadsheet — across real properties with real invoices, real vendors, and real POS data. The first pilot property is <strong>SYN</strong>, a live Donohoe restaurant.</p>
+      <p>This means you are not building in a vacuum. You have real data, real GL codes, real vendor names, and a real operator who will use what you build within weeks. That's an enormous advantage. Use it.</p>
+
+      <div class="data-grid">
+        <div class="data-cell">
+          <div class="data-label">Test Property</div>
+          <div class="data-val">SYN</div>
+          <div class="data-sub">Live Donohoe Hospitality restaurant</div>
+        </div>
+        <div class="data-cell">
+          <div class="data-label">Active Vendors</div>
+          <div class="data-val">6</div>
+          <div class="data-sub">Baldor, US Foods, Breakthru, Profish, Keany, Alsco</div>
+        </div>
+        <div class="data-cell">
+          <div class="data-label">Invoices (Jan 2026)</div>
+          <div class="data-val">24</div>
+          <div class="data-sub">$5,571 total spend · $0 audit variance</div>
+        </div>
+        <div class="data-cell">
+          <div class="data-label">Revenue (Jan 2026)</div>
+          <div class="data-val">$13,213</div>
+          <div class="data-sub">Weeks 1–5 · Weekly ramp-up pattern</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 2 -->
+    <div class="section" id="s2">
+      <div class="section-label">Section 02</div>
+      <h2>The Product — 6 Screens Locked</h2>
+      <hr class="section-divider">
+
+      <p>These six screens are not up for debate. They have been designed, validated against real operator behavior, and locked. Every screen answers a specific question. That question is the north star for what data it shows.</p>
+
+      <div class="screen-card">
+        <div class="screen-header">
+          <span class="screen-name">1. Home</span>
+          <span class="badge green">Priority 1</span>
+        </div>
+        <div class="screen-q">"Where do I stand today?"</div>
+        <ul class="screen-items">
+          <li>Prime Cost MTD — the single most important number</li>
+          <li>Sales MTD with weekly breakdown</li>
+          <li>Remaining food budget at a glance</li>
+          <li>COGS spend vs budget as a progress bar</li>
+          <li>Status narrative — plain English interpretation of the numbers</li>
+          <li>Recent transactions (last 4–5 invoices)</li>
+          <li>What the operator can still influence this week</li>
+        </ul>
+      </div>
+
+      <div class="screen-card">
+        <div class="screen-header">
+          <span class="screen-name">2. Prime Cost</span>
+          <span class="badge green">Priority 1</span>
+        </div>
+        <div class="screen-q">"What's driving health or risk?"</div>
+        <ul class="screen-items">
+          <li>Prime cost % MTD — large and dominant</li>
+          <li>Breakdown: F&B % + Labor % stacked visually</li>
+          <li>Weekly revenue trend showing whether sales are building</li>
+          <li>"What's driving this" — plain-language bullets</li>
+          <li>"What you can still influence" — actionable bullets</li>
+          <li>Target % shown clearly (62% for SYN)</li>
+        </ul>
+      </div>
+
+      <div class="screen-card">
+        <div class="screen-header">
+          <span class="screen-name">3. Budgets</span>
+          <span class="badge green">Priority 1</span>
+        </div>
+        <div class="screen-q">"What do I have left — and why?"</div>
+        <ul class="screen-items">
+          <li>Every GL category: actual spend, monthly budget, remaining, utilization %</li>
+          <li>Progress bars — green under budget, orange over budget</li>
+          <li>One-line status summary at top</li>
+          <li>Over-budget categories highlighted with context</li>
+          <li>SYN categories: Food, Liquor, Wine, Beer, Operating Supplies, Uniforms</li>
+        </ul>
+      </div>
+
+      <div class="screen-card">
+        <div class="screen-header">
+          <span class="screen-name">4. Acknowledge & Code (Approvals)</span>
+          <span class="badge amber">Priority 2</span>
+        </div>
+        <div class="screen-q">"Should I approve this right now?"</div>
+        <ul class="screen-items">
+          <li>Pending invoices as cards: vendor, amount, category, budget impact</li>
+          <li>Budget context: remaining before AND after approval</li>
+          <li>Sales pace context included on each card</li>
+          <li>Within budget: one-tap Approve button</li>
+          <li>Over budget: explanation dropdown required before approval</li>
+          <li>Reason options: Recurring contract / One-time exception / Vendor issue / Custom note</li>
+          <li>Hold option on every card</li>
+        </ul>
+      </div>
+
+      <div class="screen-card">
+        <div class="screen-header">
+          <span class="screen-name">5. Ledger + Master Vendor List</span>
+          <span class="badge amber">Priority 2</span>
+        </div>
+        <div class="screen-q">"Is this clean and explainable?"</div>
+        <ul class="screen-items">
+          <li>Full invoice ledger: date, vendor, description, amount, GL code pill, status</li>
+          <li>Summary stats: invoices coded, total spend, audit variance</li>
+          <li>Master Vendor List sub-tab: vendors, email connection status, AP contact, delivery frequency, gap alerts</li>
+          <li>Month-end should feel like confirmation, not discovery</li>
+        </ul>
+      </div>
+
+      <div class="screen-card">
+        <div class="screen-header">
+          <span class="screen-name">6. Controller Dashboard</span>
+          <span class="badge blue">Phase 2</span>
+        </div>
+        <div class="screen-q">"How are all my properties performing?"</div>
+        <ul class="screen-items">
+          <li>Portfolio view: status signal per property (green/amber/orange/red)</li>
+          <li>Prime cost MTD with trend arrow per property</li>
+          <li>Budget authority: controller can adjust budgets by revenue pace</li>
+          <li>Month-end export: one-click GL reports per property (saves 8–12 hrs/client/month)</li>
+          <li>Build this after the first 5 screens are solid</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- SECTION 3 -->
+    <div class="section" id="s3">
+      <div class="section-label">Section 03</div>
+      <h2>Real Data to Build Against</h2>
+      <hr class="section-divider">
+
+      <p>Do not use placeholder data. Everything below is real operational data from SYN in January 2026. Seed your database with this so the prototype feels like the real product immediately.</p>
+
+      <h3>SYN — January 2026 Weekly Sales</h3>
+      <table>
+        <thead><tr><th>Week</th><th>Revenue</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Week 1</td><td>$906</td><td>Opening week, low volume</td></tr>
+          <tr><td>Week 2</td><td>$1,296</td><td>Building</td></tr>
+          <tr><td>Week 3</td><td>$1,957</td><td>Building</td></tr>
+          <tr><td>Week 4</td><td>$3,477</td><td>Strong week</td></tr>
+          <tr><td>Week 5</td><td><strong>$5,576</strong></td><td>Strongest — use as current pace signal</td></tr>
+          <tr><td><strong>MTD Total</strong></td><td><strong>$13,213</strong></td><td>As of Jan 31</td></tr>
+        </tbody>
+      </table>
+
+      <h3>SYN — January 2026 Prime Cost</h3>
+      <table>
+        <thead><tr><th>Metric</th><th>Value</th><th>Target</th></tr></thead>
+        <tbody>
+          <tr><td>Prime Cost % MTD</td><td><strong>184.4%</strong></td><td>62.0%</td></tr>
+          <tr><td>F&B COGS</td><td>$5,307 (40.2% of sales)</td><td>~30%</td></tr>
+          <tr><td>Labor</td><td>$19,053 (144.2% of sales)</td><td>~32%</td></tr>
+          <tr><td>Food cost % of food sales</td><td>83.7%</td><td>30%</td></tr>
+          <tr><td>Beverage cost % of bev sales</td><td>15.4%</td><td>20%</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout amber">
+        <strong>Important context:</strong> The 184.4% is not a failure — it's a ramp-up pattern. Labor ($19,053) is fixed while revenue ($13,213) is still building. As revenue grows, this number compresses naturally. The status narrative must explain this — never show this number without context.
+      </div>
+
+      <h3>SYN — January 2026 Budget vs Actual</h3>
+      <table>
+        <thead><tr><th>GL Category</th><th>GL Code</th><th>Budget</th><th>Actual</th><th>Remaining</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Food Purchases</strong></td><td>5217250</td><td>$7,722</td><td>$4,010</td><td>$3,712</td><td><span class="badge green">Under</span></td></tr>
+          <tr><td><strong>Liquor</strong></td><td>5217257</td><td>$3,533</td><td>$1,170</td><td>$2,363</td><td><span class="badge green">Under</span></td></tr>
+          <tr><td><strong>Wine</strong></td><td>5217255</td><td>$2,933</td><td>$127</td><td>$2,806</td><td><span class="badge green">Under</span></td></tr>
+          <tr><td><strong>Beer</strong></td><td>5217258</td><td>$1,786</td><td>$0</td><td>$1,786</td><td><span class="badge green">Untouched</span></td></tr>
+          <tr><td><strong>Operating Supplies</strong></td><td>5217275</td><td>$118</td><td>$229</td><td>-$111</td><td><span class="badge amber">Over</span></td></tr>
+          <tr><td><strong>Uniforms</strong></td><td>5217280</td><td>$195</td><td>$35</td><td>$160</td><td><span class="badge green">Under</span></td></tr>
+        </tbody>
+      </table>
+
+      <h3>SYN — January 2026 Invoice Ledger (Full)</h3>
+      <table>
+        <thead><tr><th>Date</th><th>Vendor</th><th>Description</th><th>Amount</th><th>GL Code</th></tr></thead>
+        <tbody>
+          <tr><td>Jan 29</td><td><strong>Breakthru</strong></td><td>Liquor</td><td>$542.31</td><td>5217257</td></tr>
+          <tr><td>Jan 29</td><td><strong>Baldor</strong></td><td>Food / meats</td><td>$380.13</td><td>5217250</td></tr>
+          <tr><td>Jan 24</td><td><strong>Profish</strong></td><td>Seafood</td><td>$327.20</td><td>5217250</td></tr>
+          <tr><td>Jan 23</td><td><strong>Baldor</strong></td><td>Food</td><td>$432.00</td><td>5217250</td></tr>
+          <tr><td>Jan 23</td><td><strong>Breakthru</strong></td><td>Liquor</td><td>$410.55</td><td>5217257</td></tr>
+          <tr><td>Jan 23</td><td><strong>Breakthru</strong></td><td>Wine</td><td>$126.93</td><td>5217255</td></tr>
+          <tr><td>Jan 22</td><td><strong>Baldor</strong></td><td>Cheese / garnishes</td><td>$163.28</td><td>5217250</td></tr>
+          <tr><td>Jan 22</td><td><strong>Alsco</strong></td><td>Operating supplies</td><td>$64.12</td><td>5217275</td></tr>
+          <tr><td>Jan 15</td><td><strong>US Foods</strong></td><td>Dry grocery / poultry</td><td>$312.34</td><td>5217250</td></tr>
+          <tr><td>Jan 15</td><td><strong>Profish</strong></td><td>Seafood</td><td>$254.87</td><td>5217250</td></tr>
+          <tr><td>Jan 13</td><td><strong>US Foods</strong></td><td>Meat</td><td>$283.07</td><td>5217250</td></tr>
+          <tr><td>Jan 6</td><td><strong>Keany</strong></td><td>Produce / veggies</td><td>$564.35</td><td>5217250</td></tr>
+          <tr><td>Jan 6</td><td><strong>US Foods</strong></td><td>Meat / garnishes</td><td>$406.63</td><td>5217250</td></tr>
+          <tr><td>Jan 6</td><td><strong>Baldor</strong></td><td>Sauce / rice / cheese</td><td>$245.47</td><td>5217250</td></tr>
+          <tr><td>Jan 6</td><td><strong>Profish</strong></td><td>Seafood</td><td>$323.41</td><td>5217250</td></tr>
+          <tr><td>Jan 6</td><td><strong>Alsco</strong></td><td>Operating supplies</td><td>$164.88</td><td>5217275</td></tr>
+        </tbody>
+      </table>
+      <p style="font-size:12px;color:var(--text-4);margin-top:6px;">Total: $5,571 · 16 line items · $0.00 audit variance against P&L</p>
+
+      <h3>Vendor GL Code Defaults</h3>
+      <table>
+        <thead><tr><th>Vendor</th><th>Default GL</th><th>Category</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Baldor</strong></td><td>5217250</td><td>Food Purchases</td><td>Multi-category — some wine/cheese may vary</td></tr>
+          <tr><td><strong>US Foods</strong></td><td>5217250</td><td>Food Purchases</td><td>Broadline distributor</td></tr>
+          <tr><td><strong>Keany</strong></td><td>5217250</td><td>Food Purchases</td><td>Produce specialist</td></tr>
+          <tr><td><strong>Profish</strong></td><td>5217250</td><td>Food Purchases</td><td>Seafood specialist</td></tr>
+          <tr><td><strong>Breakthru</strong></td><td>5217257</td><td>Liquor</td><td>Also carries wine → 5217255</td></tr>
+          <tr><td><strong>Alsco</strong></td><td>5217275</td><td>Operating Supplies</td><td>Linen/uniform service, recurring weekly</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- SECTION 4 -->
+    <div class="section" id="s4">
+      <div class="section-label">Section 04</div>
+      <h2>Core Workflows to Implement</h2>
+      <hr class="section-divider">
+
+      <h3>Workflow 1 — Invoice Ingestion (The Central Loop)</h3>
+      <p>This is the most important workflow in the product. One action, five outcomes. A single invoice upload simultaneously triggers all five steps below.</p>
+
+      <div class="callout blue">
+        <strong>"One action, five outcomes"</strong> — A single invoice upload triggers: (1) read, (2) GL code, (3) dedup check, (4) budget impact calculation, (5) route to result. The operator does one thing. The system does five.
+      </div>
+
+      <div class="flow">
+        <div class="flow-step">
+          <div class="flow-line"><div class="flow-num">1</div><div class="flow-connector"></div></div>
+          <div class="flow-content">
+            <div class="flow-title">Read the Invoice</div>
+            <div class="flow-desc">Extract vendor, invoice number, date, line items, amounts, totals. For v1, simulate with a manual upload form — don't overcomplicate OCR yet.</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-line"><div class="flow-num">2</div><div class="flow-connector"></div></div>
+          <div class="flow-content">
+            <div class="flow-title">Assign GL Code</div>
+            <div class="flow-desc">Auto-assign from vendor default mapping. For v1, use layer (a) only: vendor default. Layers (b) description keyword and (c) operator preference rules come later.</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-line"><div class="flow-num">3</div><div class="flow-connector"></div></div>
+          <div class="flow-content">
+            <div class="flow-title">Dedup Check</div>
+            <div class="flow-desc">Check invoice number + vendor + amount combination. If match found → flag as duplicate, do not process. This protects against double-entry.</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-line"><div class="flow-num">4</div><div class="flow-connector"></div></div>
+          <div class="flow-content">
+            <div class="flow-title">Calculate Budget Impact</div>
+            <div class="flow-desc">Show: remaining before, remaining after, over/under status. This determines whether approval requires a reason.</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-line"><div class="flow-num">5</div><div class="flow-connector"></div></div>
+          <div class="flow-content">
+            <div class="flow-title">Route to Result</div>
+            <div class="flow-desc">Within budget → one-tap approve. Over budget → explanation required. After approval: ledger, budgets, prime cost, and Home screen all refresh immediately.</div>
+          </div>
+        </div>
+      </div>
+
+      <h3>Workflow 2 — Approval Flow Logic</h3>
+      <table>
+        <thead><tr><th>Scenario</th><th>UI Behavior</th><th>Required Action</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Within budget</strong></td><td>Green impact banner. Approve button prominent.</td><td>One tap: Approve</td></tr>
+          <tr><td><strong>Over by &lt;20%</strong></td><td>Amber impact banner. Reason required.</td><td>Select reason → Approve</td></tr>
+          <tr><td><strong>Over by &gt;20%</strong></td><td>Orange/red banner. Reason required.</td><td>Select reason → Approve</td></tr>
+          <tr><td><strong>Duplicate</strong></td><td>Flag as duplicate. Show existing record.</td><td>Confirm or override</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Workflow 3 — Budget Calculation Logic</h3>
+<pre><code>// Core budget calculation
+remaining = monthly_budget - sum(approved_invoices_for_gl_code)
+
+// Utilization %
+utilization = (sum(approved_invoices) / monthly_budget) * 100
+
+// Budget impact of pending invoice
+after_approval = remaining - pending_invoice_amount
+over_budget = after_approval < 0
+
+// Prime cost %
+prime_cost_pct = (total_food_bev_cogs + total_labor) / total_sales * 100
+
+// SYN January 2026 example:
+// food_bev_cogs = $5,307
+// labor        = $19,053
+// total_sales  = $13,213
+// result       = (5307 + 19053) / 13213 * 100 = 184.4%</code></pre>
+    </div>
+
+    <!-- SECTION 5 -->
+    <div class="section" id="s5">
+      <div class="section-label">Section 05</div>
+      <h2>Waste Log System</h2>
+      <hr class="section-divider">
+
+      <div class="callout amber">
+        <strong>Status: Backlog — spec locked, build after the first 5 screens are working.</strong> Do not start here. Come back to this once core screens are validated.
+      </div>
+
+      <h3>Core Philosophy</h3>
+      <p>Don't build a waste log. <strong>Build a waste moment.</strong> The operator is throwing something away. They should be able to log it in 5 seconds, on their phone, in the middle of the kitchen.</p>
+
+      <div class="callout blue">
+        Design rule: <strong>If it can't feel like sending a photo in a text message, don't ship it.</strong>
+      </div>
+
+      <h3>The Capture Flow</h3>
+      <div class="flow">
+        <div class="flow-step">
+          <div class="flow-line"><div class="flow-num">1</div><div class="flow-connector"></div></div>
+          <div class="flow-content"><div class="flow-title">Snap</div><div class="flow-desc">Tap "Log Waste" → camera opens. Photograph the item being discarded.</div></div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-line"><div class="flow-num">2</div><div class="flow-connector"></div></div>
+          <div class="flow-content"><div class="flow-title">Identify</div><div class="flow-desc">NURA identifies from purchase history: "Strawberries — Baldor, last purchased Jan 29, $4.20/lb." Operator can override.</div></div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-line"><div class="flow-num">3</div><div class="flow-connector"></div></div>
+          <div class="flow-content"><div class="flow-title">Estimate</div><div class="flow-desc">Slider for rough quantity. Precision not required — "about 3 lbs" is enough for the intelligence layer to work.</div></div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-line"><div class="flow-num">4</div><div class="flow-connector"></div></div>
+          <div class="flow-content"><div class="flow-title">Reason</div><div class="flow-desc">One tap: Expired / Over-prepped / Quality issue / Customer return.</div></div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-line"><div class="flow-num">5</div><div class="flow-connector"></div></div>
+          <div class="flow-content"><div class="flow-title">Logged</div><div class="flow-desc">5 seconds total. Item, quantity, reason, estimated dollar value, timestamp — all saved automatically.</div></div>
+        </div>
+      </div>
+
+      <h3>Waste Event Data Model</h3>
+<pre><code>waste_events {
+  id:                   uuid
+  property_id:          uuid
+  logged_by:            user_id
+  logged_at:            timestamp
+  item_name:            string        // "Strawberries"
+  item_source_vendor:   string        // "Baldor"
+  item_unit_cost:       decimal       // $4.20/lb
+  quantity_estimated:   decimal       // 3.0
+  quantity_unit:        string        // "lbs"
+  estimated_dollar_value: decimal     // unit_cost * quantity
+  reason:               enum(expired, over_prepped, quality, customer_return, other)
+  reason_note:          string        // optional
+  gl_code:              string        // inherited from purchase
+  photo_url:            string        // optional
+}</code></pre>
+    </div>
+
+    <!-- SECTION 6 -->
+    <div class="section" id="s6">
+      <div class="section-label">Section 06</div>
+      <h2>Design System</h2>
+      <hr class="section-divider">
+
+      <p>The existing prototypes define the visual language exactly. Do not invent new patterns. The product should feel warm, calm, and operator-first — never clinical, never enterprise-grey.</p>
+
+      <h3>Typography</h3>
+      <table>
+        <thead><tr><th>Font</th><th>Use Case</th></tr></thead>
+        <tbody>
+          <tr><td><strong>DM Sans</strong></td><td>All UI text — labels, body, buttons, inputs, navigation</td></tr>
+          <tr><td><strong>Newsreader</strong></td><td>Headlines, big numbers, the brand mark</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Color Tokens</h3>
+<pre><code>:root {
+  --bg:           #FAF9F7;  /* Page background — warm white */
+  --surface:      #FFFFFF;  /* Cards, modals */
+  --surface-alt:  #F4F3EF;  /* Subtle fills */
+  --border:       #E6E4DE;  /* Standard borders */
+  --text:         #1B1A17;  /* Primary — headings, key values */
+  --text-2:       #5A5850;  /* Secondary body text */
+  --text-3:       #8E8B80;  /* Labels, captions */
+  --text-4:       #B5B2A8;  /* Disabled, placeholders */
+
+  --green:        #2E7D56;  /* Healthy / under budget */
+  --green-bg:     #EEF7F1;
+  --amber:        #B8860B;  /* Watch / elevated */
+  --amber-bg:     #FFF9ED;
+  --orange:       #C2652A;  /* Action needed / over budget */
+  --orange-bg:    #FFF3EB;
+  --red:          #A63D2F;  /* Critical */
+  --blue:         #3366CC;  /* Informational / controller */
+
+  --r:            14px;     /* Standard card radius */
+  --r-sm:         10px;     /* Buttons, pills */
+  --r-lg:         18px;     /* Modals, large cards */
+}</code></pre>
+
+      <h3>Status Signal Logic</h3>
+      <table>
+        <thead><tr><th>Color</th><th>Meaning</th><th>When to use</th></tr></thead>
+        <tbody>
+          <tr><td><span class="badge green">Green</span></td><td>Healthy / Under budget</td><td>Budget under 80%, costs on target, prime cost near 62%</td></tr>
+          <tr><td><span class="badge amber">Amber</span></td><td>Watch / Elevated</td><td>Budget 80–100%, elevated but explainable, ramp-up pattern</td></tr>
+          <tr><td>Orange</td><td>Action needed</td><td>Over budget, approval required, unusual spike</td></tr>
+          <tr><td>Red</td><td>Critical</td><td>Significantly over budget, audit variance, duplicate invoice</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Key Component Rules</h3>
+      <ul>
+        <li><strong>Big numbers:</strong> Newsreader font. Prime cost % should be large and dominant on its screen.</li>
+        <li><strong>Progress bars:</strong> 8–12px height, rounded, green → amber at 80% → orange at 100%+</li>
+        <li><strong>GL code pills:</strong> Small, subtle, surface-alt background. Secondary information — never the main event.</li>
+        <li><strong>Status narrative:</strong> Always plain English. "Prime cost is elevated because labor is fixed while revenue ramps." Not just numbers.</li>
+        <li><strong>Approval cards:</strong> Show 2×2 grid: Budget / After / Sales pace / Impact.</li>
+        <li><strong>Mobile-first always:</strong> Operators use this on the floor. Large tap targets. Every action under 10 seconds.</li>
+      </ul>
+    </div>
+
+    <!-- SECTION 7 -->
+    <div class="section" id="s7">
+      <div class="section-label">Section 07</div>
+      <h2>Suggested Tech Stack</h2>
+      <hr class="section-divider">
+
+      <div class="callout blue">
+        <strong>These are suggestions, not mandates.</strong> Stack choices are yours. The only non-negotiable: mobile-first, and the UI must match the design system exactly.
+      </div>
+
+      <h3>Fastest Path to v1</h3>
+      <ol>
+        <li><strong>Supabase</strong> — database, auth, and API. Instant Postgres, zero backend boilerplate.</li>
+        <li><strong>React + Vite</strong> — frontend with the design system tokens as CSS variables.</li>
+        <li><strong>Seed the database</strong> with all SYN January 2026 data from Section 3.</li>
+        <li><strong>Hard-code GL vendor mapping</strong> — don't build OCR yet. Build the UI logic first.</li>
+        <li><strong>Manual sales and labor input</strong> — no POS or 7shifts integration until UI is validated.</li>
+      </ol>
+
+      <h3>Integration Priority Order (Post-v1)</h3>
+      <table>
+        <thead><tr><th>Integration</th><th>Priority</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Toast POS</strong></td><td>1st</td><td>Replaces manual sales entry</td></tr>
+          <tr><td><strong>Square / Clover</strong></td><td>2nd</td><td>Alternate POS systems</td></tr>
+          <tr><td><strong>7shifts / Homebase</strong></td><td>3rd</td><td>Replaces manual labor entry</td></tr>
+          <tr><td><strong>QuickBooks / Xero</strong></td><td>4th</td><td>Accounting sync, GL export</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- SECTION 8 -->
+    <div class="section" id="s8">
+      <div class="section-label">Section 08</div>
+      <h2>Database Schema Starting Point</h2>
+      <hr class="section-divider">
+
+<pre><code>-- Multi-tenant from day one
+properties {
+  id:                   uuid PRIMARY KEY
+  name:                 string          -- "SYN"
+  timezone:             string          -- "America/New_York"
+  created_at:           timestamp
+}
+
+users {
+  id:                   uuid PRIMARY KEY
+  email:                string UNIQUE
+  role:                 enum(owner, gm, controller, viewer)
+  property_id:          uuid REFERENCES properties
+  created_at:           timestamp
+}
+
+gl_codes {
+  id:                   uuid PRIMARY KEY
+  property_id:          uuid REFERENCES properties
+  code:                 string          -- "5217250"
+  name:                 string          -- "Food Purchases"
+  category:             enum(food, liquor, wine, beer, supplies, uniforms, labor, other)
+  monthly_budget:       decimal(10,2)
+  is_active:            boolean DEFAULT true
+}
+
+vendors {
+  id:                   uuid PRIMARY KEY
+  property_id:          uuid REFERENCES properties
+  name:                 string          -- "Baldor"
+  default_gl_code:      string          -- "5217250"
+  ap_email:             string
+  delivery_frequency:   string          -- "weekly"
+  is_active:            boolean DEFAULT true
+}
+
+invoices {
+  id:                   uuid PRIMARY KEY
+  property_id:          uuid REFERENCES properties
+  vendor_id:            uuid REFERENCES vendors
+  invoice_number:       string
+  invoice_date:         date
+  amount:               decimal(10,2)
+  description:          string
+  gl_code_id:           uuid REFERENCES gl_codes
+  status:               enum(pending, approved, held, duplicate)
+  approved_by:          uuid REFERENCES users
+  approved_at:          timestamp
+  approval_reason:      string          -- for over-budget approvals
+  created_at:           timestamp
+  UNIQUE(property_id, invoice_number, vendor_id)  -- dedup key
+}
+
+sales_entries {
+  id:                   uuid PRIMARY KEY
+  property_id:          uuid REFERENCES properties
+  date:                 date
+  week_number:          integer
+  food_sales:           decimal(10,2)
+  beverage_sales:       decimal(10,2)
+  total_sales:          decimal(10,2)
+  entered_by:           uuid REFERENCES users
+  created_at:           timestamp
+}
+
+labor_entries {
+  id:                   uuid PRIMARY KEY
+  property_id:          uuid REFERENCES properties
+  period_start:         date
+  period_end:           date
+  total_labor:          decimal(10,2)
+  entered_by:           uuid REFERENCES users
+  created_at:           timestamp
+}</code></pre>
+    </div>
+
+    <!-- SECTION 9 -->
+    <div class="section" id="s9">
+      <div class="section-label">Section 09</div>
+      <h2>What Success Looks Like Today</h2>
+      <hr class="section-divider">
+
+      <p>The goal for v1 is not to build everything. It's to build enough that Keem opens it, sees real SYN data, and says <em>"this is NURA."</em></p>
+
+      <table>
+        <thead><tr><th>Screen</th><th>Done when…</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Home</strong></td><td>Shows 184.4% prime cost, $13,213 MTD sales, $3,712 food budget remaining, 5 recent transactions, status narrative explaining the ramp-up pattern</td></tr>
+          <tr><td><strong>Prime Cost</strong></td><td>Shows F&B 40.2% and Labor 144.2% in breakdown form. Weekly revenue bars. "What's driving this" and "What you can still influence" sections.</td></tr>
+          <tr><td><strong>Budgets</strong></td><td>All 6 GL categories with correct values. Operating Supplies showing as over-budget in orange. Everything else green.</td></tr>
+          <tr><td><strong>Approvals</strong></td><td>Both pending approvals rendering correctly — Baldor $380 (within budget, one-tap) and Alsco $79 (over budget, reason required). Flows work.</td></tr>
+          <tr><td><strong>Ledger</strong></td><td>All 16+ invoices with GL code pills. Stats show 24 invoices, $5,571 spend, $0 variance.</td></tr>
+          <tr><td><strong>Navigation</strong></td><td>Switching between screens works. Mobile tab bar works. Web sidebar works.</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout green">
+        <strong>Bonus if time allows:</strong> The Add Invoice flow — upload → processing animation (3 steps) → coded result screen → confirm. This is already designed in the prototypes. Replicate the animation.
+      </div>
+
+      <h3>Not Required for v1</h3>
+      <ul>
+        <li>Real OCR / invoice scanning — manual form entry is fine</li>
+        <li>Toast POS integration — manual sales entry is fine</li>
+        <li>7shifts labor integration — manual entry is fine</li>
+        <li>Controller Dashboard — build after core 5 screens</li>
+        <li>Waste Log — build after core 5 screens</li>
+        <li>Predictive alerts, vendor price change tracking — Phase 2</li>
+      </ul>
+    </div>
+
+    <!-- SECTION 10 -->
+    <div class="section" id="s10">
+      <div class="section-label">Section 10</div>
+      <h2>Design Principles You Must Not Break</h2>
+      <hr class="section-divider">
+
+      <h3>1. "Clarity creates room for craft."</h3>
+      <p>Financial visibility is a creative enabler, not a constraint. The product should feel like relief — like it gives operators more freedom to do what they love. Every screen should make the operator feel more in control, not more overwhelmed.</p>
+
+      <h3>2. "The morning notification is the loyalty lock-in."</h3>
+      <p>The daily habit is the product. If an operator opens NURA every morning without being prompted, you've won. Every decision should serve that daily check-in ritual.</p>
+
+      <h3>3. "One action, five outcomes."</h3>
+      <p>Never ask the operator to do something the system can do for them. One invoice upload triggers read, code, check, update, and surface insights — automatically.</p>
+
+      <h3>4. "Month-end is confirmation, not discovery."</h3>
+      <p>If an operator is surprised by something at month-end, NURA has failed. Everything important should be visible in real time so close is just clicking export on something already understood.</p>
+
+      <h3>5. Never show a scary number without context.</h3>
+      <p>184.4% prime cost without explanation looks catastrophic. With "labor is fixed, revenue is ramping, this is a ramp-up pattern" — it's understandable and manageable. Always pair the number with the narrative.</p>
+
+      <h3>6. Mobile-first, always.</h3>
+      <p>Operators live on the floor. Every interaction must be doable on a phone, with a thumb, in under 10 seconds.</p>
+
+      <h3>7. "Suggest, don't ask."</h3>
+      <p>Every question NURA asks should already contain the answer. The operator confirms. The system learns. Eventually NURA stops asking because it already knows.</p>
+
+      <h3>8. "We win if the industry wins."</h3>
+      <p>NURA is not extracting value from operators. It's helping them survive and thrive. The product should feel generous and entirely on the operator's side.</p>
+
+      <div class="page-break"></div>
+
+      <h3>Quick Reference — Key Numbers</h3>
+      <div class="quick-ref">
+        <table>
+          <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+          <tbody>
+            <tr><td>Prime Cost Target</td><td><strong>62.0%</strong></td></tr>
+            <tr><td>Food Cost Target</td><td>~30% of food sales</td></tr>
+            <tr><td>Beverage Cost Target</td><td>~20% of bev sales</td></tr>
+            <tr><td>Labor Target</td><td>~32% of sales</td></tr>
+            <tr><td>SYN Monthly Food Budget</td><td>$7,722</td></tr>
+            <tr><td>SYN Monthly Liquor Budget</td><td>$3,533</td></tr>
+            <tr><td>SYN Monthly Wine Budget</td><td>$2,933</td></tr>
+            <tr><td>SYN Monthly Beer Budget</td><td>$1,786</td></tr>
+            <tr><td>SYN Monthly Supplies Budget</td><td>$118</td></tr>
+            <tr><td>Operator Pricing</td><td>$299/location/month (flat)</td></tr>
+            <tr><td>Controller Pricing</td><td>$149/client/month (free at 3+ clients)</td></tr>
+            <tr><td>Closest Competitor</td><td>MarginEdge ~$330/location/month</td></tr>
+            <tr><td>Total Addressable Market</td><td>930,000+ US F&B outlets</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// Active sidebar link on scroll
+const sections = document.querySelectorAll('.section');
+const navLinks = document.querySelectorAll('.sidebar-nav a');
+
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      navLinks.forEach(link => link.classList.remove('active'));
+      const id = entry.target.id;
+      const active = document.querySelector(`.sidebar-nav a[href="#${id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { threshold: 0.3 });
+
+sections.forEach(s => observer.observe(s));
+</script>
+
+</body>
+</html>
