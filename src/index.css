@@ -360,3 +360,69 @@ body {
   background: var(--nsurf);
   outline: none;
 }
+
+/* ─── Sidebar (desktop) ─── */
+.sidebar {
+  display: none; /* hidden on mobile */
+}
+
+.main-content {
+  /* no offset on mobile — full width */
+}
+
+/* ─── Desktop layout (≥768px) ─── */
+@media (min-width: 768px) {
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 220px;
+    background: var(--nsurf);
+    border-right: 1px solid var(--nborder);
+    z-index: 40;
+    overflow-y: auto;
+  }
+
+  .bottom-nav {
+    display: none;
+  }
+
+  .main-content {
+    margin-left: 220px;
+  }
+
+  .screen {
+    padding-bottom: 28px;
+    min-height: 100dvh;
+  }
+}
+
+/* ─── Sidebar nav item ─── */
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  color: var(--nt3);
+  text-decoration: none;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  border-left: 2px solid transparent;
+  transition: background 0.1s, color 0.1s;
+}
+
+.sidebar-item:hover {
+  background: var(--nsurf-alt);
+  color: var(--nt2);
+}
+
+.sidebar-item.active {
+  background: var(--nsurf-alt);
+  color: var(--nt);
+  border-left: 2px solid var(--nt);
+  font-weight: 500;
+}

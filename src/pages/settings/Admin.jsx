@@ -74,7 +74,7 @@ const Admin = () => {
           border: '1px solid var(--nborder)',
           borderRadius: 'var(--r)',
           padding: '14px 16px',
-          marginBottom: '20px',
+          marginBottom: '10px',
           textDecoration: 'none',
           color: 'var(--nt)',
           fontSize: '14px',
@@ -83,6 +83,30 @@ const Admin = () => {
       >
         Enter Sales &amp; Labor Data →
       </Link>
+
+      {/* ── Team (owner only) ── */}
+      {profile?.role === 'owner' && (
+        <>
+          <div className="section-label">Team</div>
+          <Link
+            to="/settings/team"
+            style={{
+              display: 'block',
+              background: 'var(--nsurf)',
+              border: '1px solid var(--nborder)',
+              borderRadius: 'var(--r)',
+              padding: '14px 16px',
+              marginBottom: '20px',
+              textDecoration: 'none',
+              color: 'var(--nt)',
+              fontSize: '14px',
+              fontWeight: '500',
+            }}
+          >
+            Manage Team →
+          </Link>
+        </>
+      )}
 
       {/* ── Sign out ── */}
       <button

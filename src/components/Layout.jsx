@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import BottomNav from './BottomNav'
+import Sidebar   from './Sidebar'
 
 const Layout = () => {
   const { profile } = useAuth()
@@ -23,7 +24,6 @@ const Layout = () => {
 
     fetchPending()
 
-    // Subscribe to real-time invoice changes to keep badge accurate
     const channel = supabase
       .channel('pending-invoices')
       .on(
@@ -38,7 +38,15 @@ const Layout = () => {
 
   return (
     <div style={{ background: 'var(--nbg)', minHeight: '100dvh' }}>
-      <Outlet context={{ pendingCount }} />
+      {/* Sidebar — hidden on mobile via CSS, visible on desktop */}
+      <Sidebar pendingCount={pendingCount} />
+
+      {/* Main content area — gets margin-left on desktop via CSS */}
+      <div className="main-content">
+        <Outlet context={{ pendingCount }} />
+      </div>
+
+      {/* Bottom nav — hidden on desktop via CSS */}
       <BottomNav pendingCount={pendingCount} />
     </div>
   )
