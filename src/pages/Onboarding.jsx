@@ -18,13 +18,12 @@ import { fmt, fmtFull, fmtPct } from '../lib/utils'
 //   7  invoice    — First invoice inline form + processing animation (skippable)
 //   —  done       — Live dashboard snapshot: prime cost, sales, food budget, invoices
 
-const STEPS = ['welcome', 'property', 'role', 'gl', 'sales', 'labor', 'invoice', 'done']
-const TOTAL_STEPS = 7 // welcome → invoice; done is the completion screen
+const STEPS = ['welcome', 'property', 'gl', 'sales', 'labor', 'invoice', 'done']
+const TOTAL_STEPS = 6 // welcome → invoice; done is the completion screen
 
 const STEP_LABEL = {
   welcome:  'Welcome',
   property: 'Restaurant Setup',
-  role:     'Your Role',
   gl:       'GL Codes & Budgets',
   sales:    'Last Week\'s Sales',
   labor:    'Labor Cost',
@@ -41,20 +40,13 @@ const TIMEZONES = [
   { value: 'Pacific/Honolulu',    label: 'Hawaii' },
 ]
 
-const ROLES = [
-  { value: 'owner',      label: 'Owner / Operator',  desc: 'You own or operate the restaurant directly.' },
-  { value: 'gm',         label: 'General Manager',   desc: 'You manage day-to-day restaurant operations.' },
-  { value: 'controller', label: 'Controller / CFO',  desc: 'You manage finances across multiple properties.' },
-  { value: 'viewer',     label: 'Viewer',             desc: 'Read-only access to financial data.' },
-]
-
 const DEFAULT_GL_CODES = [
-  { code: '5217250', name: 'Food Purchases',     category: 'food',     monthly_budget: 7722, sort_order: 1 },
-  { code: '5217257', name: 'Liquor',             category: 'liquor',   monthly_budget: 3533, sort_order: 2 },
-  { code: '5217255', name: 'Wine',               category: 'wine',     monthly_budget: 2933, sort_order: 3 },
-  { code: '5217258', name: 'Beer',               category: 'beer',     monthly_budget: 1786, sort_order: 4 },
-  { code: '5217275', name: 'Operating Supplies', category: 'supplies', monthly_budget: 118,  sort_order: 5 },
-  { code: '5217280', name: 'Uniforms',           category: 'uniforms', monthly_budget: 195,  sort_order: 6 },
+  { code: '5217250', name: 'Food Purchases',     category: 'food',     monthly_budget: 0, sort_order: 1 },
+  { code: '5217257', name: 'Liquor',             category: 'liquor',   monthly_budget: 0, sort_order: 2 },
+  { code: '5217255', name: 'Wine',               category: 'wine',     monthly_budget: 0, sort_order: 3 },
+  { code: '5217258', name: 'Beer',               category: 'beer',     monthly_budget: 0, sort_order: 4 },
+  { code: '5217275', name: 'Operating Supplies', category: 'supplies', monthly_budget: 0, sort_order: 5 },
+  { code: '5217280', name: 'Uniforms',           category: 'uniforms', monthly_budget: 0, sort_order: 6 },
 ]
 
 const DEFAULT_VENDORS = [
@@ -95,7 +87,6 @@ const Onboarding = () => {
 
   // Shared state persisted across steps
   const [createdProperty, setCreatedProperty] = useState(null) // { id, name, ... }
-  const [selectedRole,    setSelectedRole]    = useState(null)
   const [budgets,         setBudgets]         = useState(DEFAULT_GL_CODES.map(g => ({ ...g })))
 
   // ── Step 2: Property ────────────────────────────────────────────────────────
@@ -103,11 +94,7 @@ const Onboarding = () => {
   const [propLoading, setPropLoading] = useState(false)
   const [propError,   setPropError]   = useState(null)
 
-  // ── Step 3: Role ────────────────────────────────────────────────────────────
-  const [roleLoading, setRoleLoading] = useState(false)
-  const [roleError,   setRoleError]   = useState(null)
-
-  // ── Step 4: GL Codes ────────────────────────────────────────────────────────
+  // ── Step 3: GL Codes ────────────────────────────────────────────────────────
   const [glLoading, setGlLoading] = useState(false)
   const [glError,   setGlError]   = useState(null)
 
@@ -232,6 +219,7 @@ const Onboarding = () => {
         name:               propForm.name.trim(),
         timezone:           propForm.timezone,
         prime_cost_target:  parseFloat(propForm.prime_cost_target) || 62.0,
+        owner_id:           profile.id,
       })
       .select()
       .single()
@@ -240,30 +228,23 @@ const Onboarding = () => {
 
     setCreatedProperty(newProp)
 
-    // Link profile to the new property
+    // Link profile to the new property + assign owner role
+    // Pull first/last name from auth signup metadata (set during account creation)
+    const meta = (await supabase.auth.getUser()).data?.user?.user_metadata || {}
     const { error: profileErr } = await supabase
       .from('profiles')
-      .update({ property_id: newProp.id })
+      .update({
+        property_id:        newProp.id,
+        role:               'owner',
+        onboarding_complete: true,
+        first_name:         meta.first_name || null,
+        last_name:          meta.last_name || null,
+      })
       .eq('id', profile.id)
 
     setPropLoading(false)
     if (profileErr) { setPropError(profileErr.message); return }
 
-    advance()
-  }
-
-  const handleRole = async () => {
-    if (!selectedRole) return
-    setRoleLoading(true)
-    setRoleError(null)
-
-    const { error } = await supabase
-      .from('profiles')
-      .update({ role: selectedRole })
-      .eq('id', profile.id)
-
-    setRoleLoading(false)
-    if (error) { setRoleError(error.message); return }
     advance()
   }
 
@@ -423,8 +404,7 @@ const Onboarding = () => {
   }
 
   const handleOpenNura = () => {
-    const dest = selectedRole === 'controller' ? '/controller' : '/'
-    navigate(dest, { replace: true })
+    navigate('/', { replace: true })
   }
 
   // ── Sales form: auto-calc total ─────────────────────────────────────────────
@@ -561,67 +541,7 @@ const Onboarding = () => {
         )}
 
         {/* ══════════════════════════════════════════════════
-            STEP 3 — YOUR ROLE
-        ══════════════════════════════════════════════════ */}
-        {step === 'role' && (
-          <div>
-            <div className="font-newsreader" style={{ fontSize: '28px', marginBottom: '6px' }}>Your role</div>
-            <div style={{ fontSize: '13px', color: 'var(--nt3)', marginBottom: '20px', lineHeight: '1.6' }}>
-              What best describes your role? This determines where NURA takes you after setup.
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
-              {ROLES.map(r => {
-                const isSelected = selectedRole === r.value
-                return (
-                  <div
-                    key={r.value}
-                    onClick={() => setSelectedRole(r.value)}
-                    style={{
-                      background:    'var(--nsurf)',
-                      border:        isSelected ? '2px solid var(--nt)' : '1px solid var(--nborder)',
-                      borderRadius:  'var(--r)',
-                      padding:       isSelected ? '15px' : '16px',
-                      cursor:        'pointer',
-                      display:       'flex',
-                      alignItems:    'center',
-                      justifyContent: 'space-between',
-                      transition:    'border 0.15s',
-                    }}
-                  >
-                    <div>
-                      <div style={{ fontSize: '15px', fontWeight: '600', color: 'var(--nt)' }}>{r.label}</div>
-                      <div style={{ fontSize: '12px', color: 'var(--nt3)', marginTop: '2px' }}>{r.desc}</div>
-                    </div>
-                    {isSelected && (
-                      <div style={{
-                        width: '22px', height: '22px', borderRadius: '50%',
-                        background: 'var(--nt)', flexShrink: 0, marginLeft: '12px',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: '12px', color: 'white',
-                      }}>
-                        ✓
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-
-            {roleError && <div style={{ fontSize: '13px', color: 'var(--red)', marginBottom: '10px' }}>{roleError}</div>}
-
-            <button
-              className="btn-primary"
-              onClick={handleRole}
-              disabled={roleLoading || !selectedRole}
-            >
-              {roleLoading ? 'Saving…' : 'Continue →'}
-            </button>
-          </div>
-        )}
-
-        {/* ══════════════════════════════════════════════════
-            STEP 4 — GL CODES & BUDGETS
+            STEP 3 — GL CODES & BUDGETS
         ══════════════════════════════════════════════════ */}
         {step === 'gl' && (
           <div>

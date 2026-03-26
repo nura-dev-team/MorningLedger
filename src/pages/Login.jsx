@@ -1,37 +1,92 @@
 import { useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 
+const lbl = {
+  display: 'block',
+  fontSize: '11px',
+  fontWeight: '700',
+  textTransform: 'uppercase',
+  letterSpacing: '0.8px',
+  color: 'var(--nt4)',
+  marginBottom: '8px',
+}
+
 const Login = () => {
   const { session } = useAuth()
-  const [email, setEmail]     = useState('')
-  const [sent, setSent]       = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState(null)
 
-  // Already logged in
+  // Password sign-in state
+  const [email, setEmail]       = useState('')
+  const [password, setPassword] = useState('')
+  const [pwLoading, setPwLoading] = useState(false)
+  const [pwError, setPwError]   = useState(null)
+
+  // Magic link state
+  const [mlEmail, setMlEmail]     = useState('')
+  const [mlLoading, setMlLoading] = useState(false)
+  const [mlError, setMlError]     = useState(null)
+  const [mlSent, setMlSent]       = useState(false)
+
+  // Forgot password state
+  const [forgotSent, setForgotSent]       = useState(false)
+  const [forgotLoading, setForgotLoading] = useState(false)
+  const [forgotError, setForgotError]     = useState(null)
+
   if (session) return <Navigate to="/" replace />
 
-  const handleSubmit = async (e) => {
+  // ── Password sign in ──────────────────────────────────────────────────────
+  const handlePasswordLogin = async (e) => {
     e.preventDefault()
-    if (!email.trim()) return
+    if (!email.trim() || !password) return
+    setPwLoading(true)
+    setPwError(null)
 
-    setLoading(true)
-    setError(null)
-
-    const { error } = await supabase.auth.signInWithOtp({
+    const { error } = await supabase.auth.signInWithPassword({
       email: email.trim().toLowerCase(),
-      options: {
-        emailRedirectTo: window.location.origin,
-      },
+      password,
     })
 
-    setLoading(false)
+    setPwLoading(false)
+    if (error) setPwError(error.message)
+  }
+
+  // ── Magic link ────────────────────────────────────────────────────────────
+  const handleMagicLink = async (e) => {
+    e.preventDefault()
+    if (!mlEmail.trim()) return
+    setMlLoading(true)
+    setMlError(null)
+
+    const { error } = await supabase.auth.signInWithOtp({
+      email: mlEmail.trim().toLowerCase(),
+      options: { emailRedirectTo: window.location.origin },
+    })
+
+    setMlLoading(false)
     if (error) {
-      setError(error.message)
+      setMlError(error.message)
     } else {
-      setSent(true)
+      setMlSent(true)
+    }
+  }
+
+  // ── Forgot password ───────────────────────────────────────────────────────
+  const handleForgotPassword = async () => {
+    const target = email.trim().toLowerCase()
+    if (!target) { setPwError('Enter your email above first.'); return }
+    setForgotLoading(true)
+    setForgotError(null)
+
+    const { error } = await supabase.auth.resetPasswordForEmail(target, {
+      redirectTo: `${window.location.origin}/login`,
+    })
+
+    setForgotLoading(false)
+    if (error) {
+      setForgotError(error.message)
+    } else {
+      setForgotSent(true)
     }
   }
 
@@ -48,7 +103,7 @@ const Login = () => {
     >
       <div style={{ width: '100%', maxWidth: '360px' }}>
         {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: '48px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '40px' }}>
           <div
             style={{
               fontFamily: "'Newsreader', serif",
@@ -66,73 +121,21 @@ const Login = () => {
           </div>
         </div>
 
-        {sent ? (
-          /* ── Sent state ── */
+        {/* ════════════════════════════════════════════════════════════
+            OPTION 1 — Email + Password
+        ════════════════════════════════════════════════════════════ */}
+        <form onSubmit={handlePasswordLogin}>
           <div
             style={{
               background: 'var(--nsurf)',
               border: '1px solid var(--nborder)',
               borderRadius: 'var(--r)',
-              padding: '28px 24px',
-              textAlign: 'center',
+              padding: '24px',
+              marginBottom: '12px',
             }}
           >
-            <div style={{ fontSize: '32px', marginBottom: '12px' }}>✉️</div>
-            <div
-              style={{
-                fontSize: '16px',
-                fontWeight: '600',
-                color: 'var(--nt)',
-                marginBottom: '8px',
-              }}
-            >
-              Check your email
-            </div>
-            <div
-              style={{
-                fontSize: '13px',
-                color: 'var(--nt3)',
-                lineHeight: '1.6',
-                marginBottom: '20px',
-              }}
-            >
-              We sent a sign-in link to{' '}
-              <span style={{ color: 'var(--nt)', fontWeight: '500' }}>{email}</span>.
-              Tap it to access NURA — no password needed.
-            </div>
-            <button
-              onClick={() => { setSent(false); setEmail('') }}
-              className="btn-secondary"
-              style={{ marginTop: '0' }}
-            >
-              Use a different email
-            </button>
-          </div>
-        ) : (
-          /* ── Login form ── */
-          <form onSubmit={handleSubmit}>
-            <div
-              style={{
-                background: 'var(--nsurf)',
-                border: '1px solid var(--nborder)',
-                borderRadius: 'var(--r)',
-                padding: '24px',
-                marginBottom: '12px',
-              }}
-            >
-              <label
-                style={{
-                  display: 'block',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.8px',
-                  color: 'var(--nt4)',
-                  marginBottom: '8px',
-                }}
-              >
-                Work email
-              </label>
+            <div style={{ marginBottom: '14px' }}>
+              <label style={lbl}>Email</label>
               <input
                 type="email"
                 className="nura-input"
@@ -144,7 +147,131 @@ const Login = () => {
               />
             </div>
 
-            {error && (
+            <div>
+              <label style={lbl}>Password</label>
+              <input
+                type="password"
+                className="nura-input"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+
+            {/* Forgot password */}
+            {forgotSent ? (
+              <div style={{ fontSize: '12px', color: 'var(--green)', marginTop: '8px' }}>
+                Password reset link sent to {email}. Check your inbox.
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                disabled={forgotLoading}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  marginTop: '8px',
+                  fontSize: '12px',
+                  color: 'var(--nt3)',
+                  textDecoration: 'underline',
+                  cursor: 'pointer',
+                }}
+              >
+                {forgotLoading ? 'Sending…' : 'Forgot password?'}
+              </button>
+            )}
+            {forgotError && (
+              <div style={{ fontSize: '12px', color: 'var(--red)', marginTop: '4px' }}>{forgotError}</div>
+            )}
+          </div>
+
+          {pwError && (
+            <div
+              style={{
+                fontSize: '13px',
+                color: 'var(--red)',
+                marginBottom: '12px',
+                padding: '10px 14px',
+                background: 'var(--red-bg)',
+                borderRadius: 'var(--r-sm)',
+              }}
+            >
+              {pwError}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            className="btn-primary"
+            disabled={pwLoading || !email.trim() || !password}
+          >
+            {pwLoading ? 'Signing in…' : 'Sign In'}
+          </button>
+        </form>
+
+        {/* ── Divider ── */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '20px 0' }}>
+          <div style={{ flex: 1, height: '1px', background: 'var(--nborder)' }} />
+          <span style={{ fontSize: '12px', color: 'var(--nt4)', textTransform: 'uppercase', letterSpacing: '1px' }}>or</span>
+          <div style={{ flex: 1, height: '1px', background: 'var(--nborder)' }} />
+        </div>
+
+        {/* ════════════════════════════════════════════════════════════
+            OPTION 2 — Magic Link
+        ════════════════════════════════════════════════════════════ */}
+        {mlSent ? (
+          <div
+            style={{
+              background: 'var(--nsurf)',
+              border: '1px solid var(--nborder)',
+              borderRadius: 'var(--r)',
+              padding: '28px 24px',
+              textAlign: 'center',
+            }}
+          >
+            <div style={{ fontSize: '32px', marginBottom: '12px' }}>✉️</div>
+            <div style={{ fontSize: '16px', fontWeight: '600', color: 'var(--nt)', marginBottom: '8px' }}>
+              Check your email
+            </div>
+            <div style={{ fontSize: '13px', color: 'var(--nt3)', lineHeight: '1.6', marginBottom: '20px' }}>
+              We sent a sign-in link to{' '}
+              <span style={{ color: 'var(--nt)', fontWeight: '500' }}>{mlEmail}</span>.
+              Tap it to access NURA — no password needed.
+            </div>
+            <button
+              onClick={() => { setMlSent(false); setMlEmail('') }}
+              className="btn-secondary"
+              style={{ marginTop: '0' }}
+            >
+              Use a different email
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleMagicLink}>
+            <div
+              style={{
+                background: 'var(--nsurf)',
+                border: '1px solid var(--nborder)',
+                borderRadius: 'var(--r)',
+                padding: '24px',
+                marginBottom: '12px',
+              }}
+            >
+              <label style={lbl}>Sign in with magic link</label>
+              <input
+                type="email"
+                className="nura-input"
+                placeholder="you@yourrestaurant.com"
+                value={mlEmail}
+                onChange={(e) => setMlEmail(e.target.value)}
+                required
+              />
+            </div>
+
+            {mlError && (
               <div
                 style={{
                   fontSize: '13px',
@@ -155,33 +282,27 @@ const Login = () => {
                   borderRadius: 'var(--r-sm)',
                 }}
               >
-                {error}
+                {mlError}
               </div>
             )}
 
             <button
               type="submit"
-              className="btn-primary"
-              disabled={loading || !email.trim()}
+              className="btn-secondary"
+              disabled={mlLoading || !mlEmail.trim()}
             >
-              {loading ? 'Sending…' : 'Send sign-in link'}
+              {mlLoading ? 'Sending…' : 'Send sign-in link'}
             </button>
-
-            <div
-              style={{
-                textAlign: 'center',
-                fontSize: '12px',
-                color: 'var(--nt4)',
-                marginTop: '20px',
-                lineHeight: '1.6',
-              }}
-            >
-              No password. No app download.
-              <br />
-              Just a link in your inbox.
-            </div>
           </form>
         )}
+
+        {/* Sign up link */}
+        <div style={{ textAlign: 'center', marginTop: '24px', fontSize: '13px', color: 'var(--nt4)' }}>
+          Don't have an account?{' '}
+          <Link to="/signup/owner" style={{ color: 'var(--nt)', fontWeight: '500', textDecoration: 'underline' }}>
+            Sign up
+          </Link>
+        </div>
       </div>
     </div>
   )

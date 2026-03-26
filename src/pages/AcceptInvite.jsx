@@ -9,7 +9,9 @@ import { ROLE_HOME } from '../lib/nav'
 // Flow:
 //   1. Load and validate the invite token
 //   2. If valid + not yet signed in: show form (name + email prefilled), send magic link
-//   3. If valid + signed in (returned from magic link): create profile, update invite, route home
+//   3. If valid + signed in (returned from magic link): create profile, update invite
+//   4. Show optional password creation screen
+//   5. Route to role-appropriate home
 
 const ROLE_LABELS = {
   gm:         'General Manager',
@@ -17,16 +19,32 @@ const ROLE_LABELS = {
   viewer:     'Viewer',
 }
 
+const lbl = {
+  display: 'block',
+  fontSize: '11px',
+  fontWeight: '700',
+  textTransform: 'uppercase',
+  letterSpacing: '0.8px',
+  color: 'var(--nt4)',
+  marginBottom: '6px',
+}
+
 const AcceptInvite = () => {
   const { token }   = useParams()
   const navigate    = useNavigate()
-  const { session, profile, refreshProfile } = useAuth()
+  const { session, refreshProfile } = useAuth()
 
   const [invite,     setInvite]     = useState(null)
-  const [status,     setStatus]     = useState('loading') // loading | invalid | form | email_sent | completing | done
+  const [status,     setStatus]     = useState('loading') // loading | invalid | form | email_sent | completing | set_password | done
   const [name,       setName]       = useState('')
   const [sending,    setSending]    = useState(false)
   const [error,      setError]      = useState(null)
+
+  // Password creation state
+  const [pw, setPw]               = useState('')
+  const [pwConfirm, setPwConfirm] = useState('')
+  const [pwLoading, setPwLoading] = useState(false)
+  const [pwError, setPwError]     = useState(null)
 
   // ── Step 1: Load invite ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -89,11 +107,8 @@ const AcceptInvite = () => {
       // Refresh profile so AuthContext picks up new property_id and role
       await refreshProfile()
 
-      setStatus('done')
-
-      // Route to role-appropriate home
-      const home = ROLE_HOME[invite.role] || '/'
-      setTimeout(() => navigate(home, { replace: true }), 800)
+      // Show optional password creation screen
+      setStatus('set_password')
     }
 
     complete()
@@ -124,6 +139,32 @@ const AcceptInvite = () => {
     }
 
     setStatus('email_sent')
+  }
+
+  // ── Step 4: Set password ────────────────────────────────────────────────────
+  const handleSetPassword = async (e) => {
+    e.preventDefault()
+    setPwError(null)
+
+    if (pw.length < 8) { setPwError('Password must be at least 8 characters.'); return }
+    if (!/\d/.test(pw)) { setPwError('Password must include at least 1 number.'); return }
+    if (!/[^a-zA-Z0-9]/.test(pw)) { setPwError('Password must include at least 1 symbol.'); return }
+    if (pw !== pwConfirm) { setPwError('Passwords do not match.'); return }
+
+    setPwLoading(true)
+
+    const { error } = await supabase.auth.updateUser({ password: pw })
+
+    setPwLoading(false)
+    if (error) { setPwError(error.message); return }
+
+    goHome()
+  }
+
+  const goHome = () => {
+    setStatus('done')
+    const home = ROLE_HOME[invite?.role] || '/'
+    setTimeout(() => navigate(home, { replace: true }), 800)
   }
 
   // ── Render states ────────────────────────────────────────────────────────────
@@ -195,6 +236,88 @@ const AcceptInvite = () => {
     )
   }
 
+  // ── Set password screen (after invite acceptance) ───────────────────────────
+  if (status === 'set_password') {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh', background: 'var(--nbg)', padding: '24px' }}>
+        <div style={{ maxWidth: '380px', width: '100%' }}>
+          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+            <div style={{ fontSize: '32px', marginBottom: '12px' }}>✓</div>
+            <div className="font-newsreader" style={{ fontSize: '22px', fontWeight: 400, marginBottom: '6px' }}>
+              You're in
+            </div>
+            <div style={{ fontSize: '14px', color: 'var(--nt3)', lineHeight: '1.6' }}>
+              Your account is set up. Create a password so you can sign in faster next time.
+            </div>
+          </div>
+
+          <form onSubmit={handleSetPassword}>
+            <div
+              style={{
+                background: 'var(--nsurf)',
+                border: '1px solid var(--nborder)',
+                borderRadius: 'var(--r)',
+                padding: '24px',
+                marginBottom: '12px',
+              }}
+            >
+              <div style={{ marginBottom: '14px' }}>
+                <label style={lbl}>Password</label>
+                <input
+                  type="password"
+                  className="nura-input"
+                  placeholder="Min 8 chars, 1 number, 1 symbol"
+                  value={pw}
+                  onChange={(e) => setPw(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label style={lbl}>Confirm password</label>
+                <input
+                  type="password"
+                  className="nura-input"
+                  placeholder="Re-enter your password"
+                  value={pwConfirm}
+                  onChange={(e) => setPwConfirm(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {pwError && (
+              <div style={{ fontSize: '13px', color: 'var(--red)', marginBottom: '12px', padding: '10px 14px', background: 'var(--red-bg)', borderRadius: 'var(--r-sm)' }}>
+                {pwError}
+              </div>
+            )}
+
+            <button type="submit" className="btn-primary" disabled={pwLoading || !pw || !pwConfirm}>
+              {pwLoading ? 'Setting password…' : 'Set Password'}
+            </button>
+          </form>
+
+          <button
+            onClick={goHome}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'block',
+              width: '100%',
+              textAlign: 'center',
+              marginTop: '14px',
+              fontSize: '13px',
+              color: 'var(--nt3)',
+              textDecoration: 'underline',
+              padding: '4px',
+            }}
+          >
+            Skip for now
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   // status === 'form'
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh', background: 'var(--nbg)', padding: '24px' }}>
@@ -214,9 +337,7 @@ const AcceptInvite = () => {
         {/* Form */}
         <form onSubmit={handleAccept}>
           <div style={{ marginBottom: '14px' }}>
-            <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--nt4)', marginBottom: '6px' }}>
-              Your Name
-            </label>
+            <label style={lbl}>Your Name</label>
             <input
               type="text"
               className="nura-input"
@@ -227,9 +348,7 @@ const AcceptInvite = () => {
           </div>
 
           <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--nt4)', marginBottom: '6px' }}>
-              Email
-            </label>
+            <label style={lbl}>Email</label>
             <input
               type="email"
               className="nura-input"
@@ -252,7 +371,7 @@ const AcceptInvite = () => {
         </form>
 
         <div style={{ textAlign: 'center', marginTop: '16px', fontSize: '12px', color: 'var(--nt4)' }}>
-          No password needed — we use magic links.
+          We use magic links to verify your email — no password needed.
         </div>
       </div>
     </div>
