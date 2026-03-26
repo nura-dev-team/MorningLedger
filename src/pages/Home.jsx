@@ -52,26 +52,10 @@ const Home = () => {
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(null)
 
-  // On mount: find the latest month with data and use that as default period
+  // On mount: use current month (period nav lets user browse history)
   useEffect(() => {
     if (!propertyId) return
-    const initPeriod = async () => {
-      const { data: latest } = await supabase
-        .from('sales_entries')
-        .select('date')
-        .eq('property_id', propertyId)
-        .order('date', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      if (latest?.date) {
-        const d = new Date(latest.date + 'T00:00:00')
-        setYear(d.getFullYear())
-        setMonth(d.getMonth() + 1)
-      }
-      setPeriodReady(true)
-    }
-    initPeriod()
+    setPeriodReady(true)
   }, [propertyId])
 
   // Fetch all dashboard data for the selected period

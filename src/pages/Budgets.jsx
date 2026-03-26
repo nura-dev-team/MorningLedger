@@ -1,25 +1,16 @@
+import { useState, useEffect, useCallback } from 'react'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
+import { fmt, getMonthRange, budgetStatus } from '../lib/utils'
+
 // ── Budgets screen ────────────────────────────────────────────────────────────
-// Static SYN January 2026 data — real data fetching in Phase 2
+// Queries gl_codes for budget targets and approved invoices for the current month.
 
-const budgets = [
-  { name: 'Food Purchases', code: '5217250', budget: 7722,  spent: 4010, remaining: 3712,  utilPct: 51.9, status: 'under' },
-  { name: 'Liquor',         code: '5217257', budget: 3533,  spent: 1170, remaining: 2363,  utilPct: 33.1, status: 'under' },
-  { name: 'Wine',           code: '5217255', budget: 2933,  spent: 127,  remaining: 2806,  utilPct: 4.3,  status: 'under' },
-  { name: 'Beer',           code: '5217258', budget: 1786,  spent: 0,    remaining: 1786,  utilPct: 0,    status: 'untouched' },
-  { name: 'Operating Supplies', code: '5217275', budget: 118, spent: 229, remaining: -111, utilPct: 100,  status: 'over' },
-  { name: 'Uniforms',       code: '5217280', budget: 195,   spent: 35,   remaining: 160,   utilPct: 17.9, status: 'under' },
-]
-
-const fmt  = (n) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 })
-
-const BudgetCard = ({ name, code, budget, spent, remaining, utilPct, status }) => {
-  const over      = status === 'over'
-  const untouched = status === 'untouched'
-
-  const badgeCls  = over ? 'bdg bdg-orange' : untouched ? 'bdg bdg-blue' : 'bdg bdg-green'
-  const badgeLbl  = over ? 'Over' : untouched ? 'Untouched' : 'Under'
-  const barCls    = over ? 'pbar-fill pbar-orange' : 'pbar-fill pbar-green'
-  const barWidth  = `${Math.min(utilPct, 100)}%`
+const BudgetCard = ({ name, code, budget, spent, remaining, utilPct }) => {
+  const { label: badgeLbl, cls: badgeCls } = budgetStatus(utilPct, remaining)
+  const over = remaining < 0
+  const barCls = over ? 'pbar-fill pbar-orange' : 'pbar-fill pbar-green'
+  const barWidth = `${Math.min(utilPct, 100)}%`
 
   return (
     <div
@@ -31,7 +22,7 @@ const BudgetCard = ({ name, code, budget, spent, remaining, utilPct, status }) =
           <div style={{ fontSize: '15px', fontWeight: '500' }}>{name}</div>
           <div style={{ fontSize: '11px', color: 'var(--nt3)' }}>GL {code}</div>
         </div>
-        <span className={badgeCls}>{badgeLbl}</span>
+        <span className={`bdg ${badgeCls}`}>{badgeLbl}</span>
       </div>
 
       <div className="pbar-wrap">
@@ -57,29 +48,123 @@ const BudgetCard = ({ name, code, budget, spent, remaining, utilPct, status }) =
 }
 
 const Budgets = () => {
-  const overCount = budgets.filter((b) => b.status === 'over').length
+  const { profile } = useAuth()
+  const propertyId = profile?.property_id
+
+  const [budgets, setBudgets]   = useState([])
+  const [loading, setLoading]   = useState(true)
+  const [error, setError]       = useState(null)
+
+  const fetchData = useCallback(async () => {
+    if (!propertyId) return
+    setLoading(true)
+    setError(null)
+
+    const now = new Date()
+    const { start, end } = getMonthRange(now.getFullYear(), now.getMonth() + 1)
+
+    const [glRes, invRes] = await Promise.all([
+      supabase
+        .from('gl_codes')
+        .select('code, name, monthly_budget')
+        .eq('property_id', propertyId)
+        .eq('is_active', true)
+        .order('sort_order'),
+
+      supabase
+        .from('invoices')
+        .select('gl_code, amount')
+        .eq('property_id', propertyId)
+        .eq('status', 'approved')
+        .gte('invoice_date', start)
+        .lte('invoice_date', end),
+    ])
+
+    if (glRes.error) { setError(glRes.error.message); setLoading(false); return }
+
+    const glCodes = glRes.data || []
+    const invoices = invRes.data || []
+
+    // Spend per GL code
+    const spend = {}
+    for (const inv of invoices) {
+      spend[inv.gl_code] = (spend[inv.gl_code] || 0) + Number(inv.amount)
+    }
+
+    const computed = glCodes.map((gl) => {
+      const budget = Number(gl.monthly_budget)
+      const spent = spend[gl.code] || 0
+      const remaining = budget - spent
+      const utilPct = budget > 0 ? (spent / budget) * 100 : (spent > 0 ? 100 : 0)
+      return {
+        name: gl.name,
+        code: gl.code,
+        budget,
+        spent,
+        remaining,
+        utilPct,
+      }
+    })
+
+    setBudgets(computed)
+    setLoading(false)
+  }, [propertyId])
+
+  useEffect(() => { fetchData() }, [fetchData])
+
+  const overCount = budgets.filter((b) => b.remaining < 0).length
+
+  // Generate summary note for over-budget categories
+  const overCategories = budgets.filter((b) => b.remaining < 0)
+  const untouchedCategories = budgets.filter((b) => b.spent === 0)
+
+  let summaryNote = ''
+  if (overCategories.length > 0) {
+    const overNames = overCategories.map((b) => `${b.name} is ${fmt(Math.abs(b.remaining))} over budget`).join('. ')
+    const otherInfo = []
+    const underCount = budgets.length - overCategories.length - untouchedCategories.length
+    if (underCount > 0) otherInfo.push(`${underCount === budgets.length - overCategories.length ? 'All other categories are' : `${underCount} categories are`} under`)
+    if (untouchedCategories.length > 0) otherInfo.push(`${untouchedCategories.map((b) => b.name).join(', ')} ${untouchedCategories.length === 1 ? 'is' : 'are'} untouched`)
+    summaryNote = overNames + '. ' + otherInfo.join('. ') + '.'
+  }
 
   return (
     <div className="screen">
       {/* ── Header ── */}
       <div className="screen-hdr">
         <div className="font-newsreader" style={{ fontSize: '22px', fontWeight: 400 }}>Budgets</div>
-        <span className={overCount > 0 ? 'bdg bdg-orange' : 'bdg bdg-green'}>
-          {overCount > 0 ? `${overCount} Over` : 'All Under'}
-        </span>
+        {!loading && (
+          <span className={overCount > 0 ? 'bdg bdg-orange' : 'bdg bdg-green'}>
+            {overCount > 0 ? `${overCount} Over` : 'All Under'}
+          </span>
+        )}
       </div>
 
-      {/* ── Summary note ── */}
-      {overCount > 0 && (
-        <div className="note-orange">
-          Operating Supplies is $111 over budget. All other categories are under. Beer is untouched.
+      {error && (
+        <div style={{ padding: '12px', background: 'var(--red-bg)', borderRadius: 'var(--r-sm)', fontSize: '13px', color: 'var(--red)', marginBottom: '12px' }}>
+          {error}
         </div>
       )}
 
-      {/* ── Budget cards ── */}
-      {budgets.map((b) => (
-        <BudgetCard key={b.code} {...b} />
-      ))}
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--nt4)', fontSize: '13px' }}>Loading…</div>
+      ) : (
+        <>
+          {/* ── Summary note ── */}
+          {overCount > 0 && (
+            <div className="note-orange">{summaryNote}</div>
+          )}
+
+          {/* ── Budget cards ── */}
+          {budgets.length === 0 ? (
+            <div className="nura-card" style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--nt3)', fontSize: '14px' }}>
+              No budget categories configured yet.
+            </div>
+          ) : (
+            budgets.map((b) => <BudgetCard key={b.code} {...b} />)
+          )}
+        </>
+      )}
     </div>
   )
 }
