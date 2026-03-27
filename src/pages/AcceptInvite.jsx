@@ -350,7 +350,8 @@ const AcceptInvite = () => {
           <div style={{ marginBottom: '20px' }}>
             <label style={lbl}>Email</label>
             <input
-              type="email"
+              type="text"
+              inputMode="email"
               className="nura-input"
               value={invite?.email || ''}
               readOnly

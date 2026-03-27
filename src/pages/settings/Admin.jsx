@@ -1,14 +1,18 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { supabase } from '../../lib/supabase'
 
 // ── Admin / Settings screen ───────────────────────────────────────────────────
+// Renders different content based on profile.role:
+//   Owner:      Property info (editable), Account info, Data Entry, Team, Sign out
+//   GM:         Property info (read-only), Account info (read-only), Sign out
+//   Viewer:     Property info (read-only), Account info (read-only), Sign out
+//   Controller: Account info, assigned properties list (read-only), Sign out
 
 const Admin = () => {
-  const { profile, signOut, refreshProfile } = useAuth()
+  const { profile, activeProperty, assignedProperties, signOut } = useAuth()
   const navigate = useNavigate()
-  const property = profile?.properties
+  const role = profile?.role || 'viewer'
 
   const [signingOut, setSigningOut] = useState(false)
 
@@ -34,6 +38,19 @@ const Admin = () => {
     </div>
   )
 
+  const linkStyle = {
+    display: 'block',
+    background: 'var(--nsurf)',
+    border: '1px solid var(--nborder)',
+    borderRadius: 'var(--r)',
+    padding: '14px 16px',
+    marginBottom: '10px',
+    textDecoration: 'none',
+    color: 'var(--nt)',
+    fontSize: '14px',
+    fontWeight: '500',
+  }
+
   return (
     <div className="screen">
       {/* ── Header ── */}
@@ -48,67 +65,123 @@ const Admin = () => {
         <div style={{ width: '40px' }} />
       </div>
 
-      {/* ── Property info ── */}
-      <div className="section-label">Property</div>
-      <div className="nura-card" style={{ marginBottom: '20px' }}>
-        <Row label="Name"             value={property?.name} />
-        <Row label="Timezone"         value={property?.timezone} />
-        <Row label="Prime cost target" value={property?.prime_cost_target ? `${property.prime_cost_target}%` : '62.0%'} />
-        <Row label="Your role"        value={profile?.role} />
-      </div>
-
-      {/* ── Account ── */}
-      <div className="section-label">Account</div>
-      <div className="nura-card" style={{ marginBottom: '20px' }}>
-        <Row label="Email" value={profile?.email} />
-        <Row label="User ID" value={profile?.id?.slice(0, 8) + '…'} />
-      </div>
-
-      {/* ── Quick links ── */}
-      <div className="section-label">Data Entry</div>
-      <Link
-        to="/settings/data"
-        style={{
-          display: 'block',
-          background: 'var(--nsurf)',
-          border: '1px solid var(--nborder)',
-          borderRadius: 'var(--r)',
-          padding: '14px 16px',
-          marginBottom: '10px',
-          textDecoration: 'none',
-          color: 'var(--nt)',
-          fontSize: '14px',
-          fontWeight: '500',
-        }}
-      >
-        Enter Sales &amp; Labor Data →
-      </Link>
-
-      {/* ── Team (owner only) ── */}
-      {profile?.role === 'owner' && (
+      {/* ══════════════════════════════════════════════════════════════════════
+          OWNER — full access
+      ══════════════════════════════════════════════════════════════════════ */}
+      {role === 'owner' && (
         <>
+          {/* Property info (editable via link) */}
+          <div className="section-label">Property</div>
+          <div className="nura-card" style={{ marginBottom: '20px' }}>
+            <Row label="Name"              value={activeProperty?.name} />
+            <Row label="Timezone"          value={activeProperty?.timezone} />
+            <Row label="Prime cost target" value={activeProperty?.prime_cost_target ? `${activeProperty.prime_cost_target}%` : '62.0%'} />
+            <Row label="Your role"         value="Owner" />
+          </div>
+
+          {/* Account info */}
+          <div className="section-label">Account</div>
+          <div className="nura-card" style={{ marginBottom: '20px' }}>
+            <Row label="Name"  value={[profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || profile?.full_name} />
+            <Row label="Email" value={profile?.email} />
+          </div>
+
+          {/* Data Entry */}
+          <div className="section-label">Data Entry</div>
+          <Link to="/settings/data" style={linkStyle}>
+            Enter Sales &amp; Labor Data →
+          </Link>
+
+          {/* Team Management */}
           <div className="section-label">Team</div>
-          <Link
-            to="/settings/team"
-            style={{
-              display: 'block',
-              background: 'var(--nsurf)',
-              border: '1px solid var(--nborder)',
-              borderRadius: 'var(--r)',
-              padding: '14px 16px',
-              marginBottom: '20px',
-              textDecoration: 'none',
-              color: 'var(--nt)',
-              fontSize: '14px',
-              fontWeight: '500',
-            }}
-          >
+          <Link to="/settings/team" style={linkStyle}>
             Manage Team →
           </Link>
         </>
       )}
 
-      {/* ── Sign out ── */}
+      {/* ══════════════════════════════════════════════════════════════════════
+          GM / OPERATOR — read-only property + account, no team/data links
+      ══════════════════════════════════════════════════════════════════════ */}
+      {role === 'gm' && (
+        <>
+          <div className="section-label">Property</div>
+          <div className="nura-card" style={{ marginBottom: '20px' }}>
+            <Row label="Name"     value={activeProperty?.name} />
+            <Row label="Timezone" value={activeProperty?.timezone} />
+            <Row label="Your role" value="General Manager" />
+          </div>
+
+          <div className="section-label">Account</div>
+          <div className="nura-card" style={{ marginBottom: '20px' }}>
+            <Row label="Name"  value={profile?.full_name} />
+            <Row label="Email" value={profile?.email} />
+          </div>
+        </>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          VIEWER — read-only property + account, sign out only
+      ══════════════════════════════════════════════════════════════════════ */}
+      {role === 'viewer' && (
+        <>
+          <div className="section-label">Property</div>
+          <div className="nura-card" style={{ marginBottom: '20px' }}>
+            <Row label="Name"     value={activeProperty?.name} />
+            <Row label="Timezone" value={activeProperty?.timezone} />
+            <Row label="Your role" value="Viewer" />
+          </div>
+
+          <div className="section-label">Account</div>
+          <div className="nura-card" style={{ marginBottom: '20px' }}>
+            <Row label="Name"  value={profile?.full_name} />
+            <Row label="Email" value={profile?.email} />
+          </div>
+        </>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          CONTROLLER — account info + assigned properties list
+      ══════════════════════════════════════════════════════════════════════ */}
+      {role === 'controller' && (
+        <>
+          <div className="section-label">Account</div>
+          <div className="nura-card" style={{ marginBottom: '20px' }}>
+            <Row label="Name"  value={profile?.full_name} />
+            <Row label="Email" value={profile?.email} />
+            <Row label="Role"  value="Controller / CFO" />
+          </div>
+
+          <div className="section-label">Assigned Properties</div>
+          <div className="nura-card" style={{ marginBottom: '20px' }}>
+            {assignedProperties.length === 0 ? (
+              <div style={{ fontSize: '13px', color: 'var(--nt4)', padding: '8px 0' }}>No properties assigned yet.</div>
+            ) : (
+              assignedProperties.map((p, i) => (
+                <div
+                  key={p.id}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '10px 0',
+                    borderBottom: i < assignedProperties.length - 1 ? '1px solid var(--nborder)' : 'none',
+                    fontSize: '14px',
+                  }}
+                >
+                  <div>
+                    <div style={{ fontWeight: '500', color: 'var(--nt)' }}>{p.name}</div>
+                    {p.city && <div style={{ fontSize: '12px', color: 'var(--nt3)', marginTop: '2px' }}>{p.city}</div>}
+                  </div>
+                  <span style={{ fontSize: '12px', color: 'var(--nt4)' }}>{p.timezone}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </>
+      )}
+
+      {/* ── Sign out — all roles ── */}
       <button
         onClick={handleSignOut}
         disabled={signingOut}

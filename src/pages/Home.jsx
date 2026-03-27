@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import AddInvoiceModal from '../components/AddInvoiceModal'
@@ -35,9 +35,11 @@ const primeCostBadge = (status) => {
 // ─── Main component ─────────────────────────────────────────────────────────
 
 const Home = () => {
-  const { profile } = useAuth()
-  const propertyId   = profile?.property_id
-  const propertyName = profile?.properties?.name || 'NURA'
+  const { profile, activePropertyId, activeProperty } = useAuth()
+  const [searchParams] = useSearchParams()
+  const setupPending = searchParams.get('setup') === 'pending'
+  const propertyId   = activePropertyId
+  const propertyName = activeProperty?.name || 'NURA'
 
   // Period navigation
   const [year,  setYear]  = useState(new Date().getFullYear())
@@ -161,7 +163,7 @@ const Home = () => {
         fbCogsAllPct,
         laborPct,
         primeCostPct,
-        primeCostTarget: profile?.properties?.prime_cost_target || 62,
+        primeCostTarget: activeProperty?.prime_cost_target || 62,
         budgets,
         foodBudget,
         weeklySales,
@@ -175,7 +177,7 @@ const Home = () => {
     } finally {
       setLoading(false)
     }
-  }, [propertyId, year, month, periodReady, profile?.properties?.prime_cost_target])
+  }, [propertyId, year, month, periodReady, activeProperty?.prime_cost_target])
 
   useEffect(() => { fetchDashboard() }, [fetchDashboard])
 
@@ -212,6 +214,72 @@ const Home = () => {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="screen">
+
+      {/* ── Pending Setup Banner (delegation path) ── */}
+      {setupPending && (
+        <div style={{ marginBottom: '16px' }}>
+          <div
+            style={{
+              background: 'var(--amber-bg)',
+              borderLeft: '3px solid var(--amber)',
+              borderRadius: '0 var(--r-sm) var(--r-sm) 0',
+              padding: '14px 16px',
+              marginBottom: '12px',
+            }}
+          >
+            <div style={{ fontSize: '14px', fontWeight: '600', color: 'var(--nt)', marginBottom: '4px' }}>
+              Setup in progress
+            </div>
+            <div style={{ fontSize: '13px', color: 'var(--nt2)', lineHeight: '1.5' }}>
+              Waiting for your Controller to complete financial configuration.{' '}
+              <button
+                onClick={async () => {
+                  // Resend: find the pending setup invite and show confirmation
+                  const { data: inv } = await supabase
+                    .from('invites')
+                    .select('email')
+                    .eq('property_id', propertyId)
+                    .eq('setup_invite', true)
+                    .eq('status', 'pending')
+                    .maybeSingle()
+                  if (inv) alert(`Invite link resent to ${inv.email}`)
+                }}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: 'var(--amber)', fontWeight: '600', fontSize: '13px',
+                  padding: 0, textDecoration: 'underline',
+                }}
+              >
+                Resend Invite
+              </button>
+            </div>
+          </div>
+
+          {/* Tip card */}
+          <div
+            style={{
+              background: 'var(--nsurf)',
+              border: '1px solid var(--nborder)',
+              borderRadius: 'var(--r-sm)',
+              padding: '14px 16px',
+            }}
+          >
+            <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--nt)', marginBottom: '4px' }}>
+              While you wait
+            </div>
+            <div style={{ fontSize: '13px', color: 'var(--nt3)', lineHeight: '1.5' }}>
+              Try uploading your first invoice to see how NURA reads and codes it.
+            </div>
+            <button
+              onClick={() => setShowAddInvoice(true)}
+              className="btn-secondary"
+              style={{ marginTop: '10px', fontSize: '12px', padding: '6px 14px' }}
+            >
+              Upload an Invoice
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Header ── */}
       <div className="screen-hdr">

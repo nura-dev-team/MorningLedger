@@ -6,14 +6,20 @@ import { useAuth } from '../context/AuthContext'
 // Bottom sheet on mobile, centered on desktop.
 // Inserts into invites table, shows link on success.
 
-const ROLE_OPTIONS = [
-  { value: 'gm',         label: 'General Manager',  desc: 'Enter sales/labor, approve invoices, view all reports' },
+const ALL_ROLE_OPTIONS = [
   { value: 'controller', label: 'Controller / CFO',  desc: 'Portfolio view, budget authority, month-end export' },
-  { value: 'viewer',     label: 'Viewer',            desc: 'Read-only access to reports and dashboards' },
+  { value: 'gm',         label: 'General Manager',   desc: 'Enter sales/labor, approve invoices, view all reports' },
+  { value: 'viewer',     label: 'Viewer',             desc: 'Read-only access to reports and dashboards' },
 ]
 
 const InviteModal = ({ onClose }) => {
-  const { profile } = useAuth()
+  const { profile, activePropertyId, activeProperty } = useAuth()
+  const senderRole = profile?.role
+
+  // Owner can invite all roles; Controller can invite GM and Viewer only
+  const roleOptions = senderRole === 'owner'
+    ? ALL_ROLE_OPTIONS
+    : ALL_ROLE_OPTIONS.filter((opt) => opt.value !== 'controller')
 
   const [email,     setEmail]     = useState('')
   const [role,      setRole]      = useState('gm')
@@ -32,7 +38,7 @@ const InviteModal = ({ onClose }) => {
       .from('profiles')
       .select('id')
       .eq('email', email.toLowerCase().trim())
-      .eq('property_id', profile.property_id)
+      .eq('property_id', activePropertyId)
       .maybeSingle()
 
     if (existing) {
@@ -45,7 +51,7 @@ const InviteModal = ({ onClose }) => {
     const { data: pendingInvite } = await supabase
       .from('invites')
       .select('id, token')
-      .eq('property_id', profile.property_id)
+      .eq('property_id', activePropertyId)
       .eq('email', email.toLowerCase().trim())
       .eq('status', 'pending')
       .maybeSingle()
@@ -59,7 +65,7 @@ const InviteModal = ({ onClose }) => {
       const { data: invite, error: insertErr } = await supabase
         .from('invites')
         .insert({
-          property_id: profile.property_id,
+          property_id: activePropertyId,
           invited_by:  profile.id,
           email:       email.toLowerCase().trim(),
           role,
@@ -75,6 +81,19 @@ const InviteModal = ({ onClose }) => {
       token = invite.token
     }
 
+    // Send invite email via Edge Function (fire-and-forget — link still shown on failure)
+    supabase.functions.invoke('send-invite-email', {
+      body: {
+        email: email.toLowerCase().trim(),
+        propertyName: activeProperty?.name || 'your property',
+        role,
+        token,
+        senderName: profile?.first_name
+          ? `${profile.first_name} ${profile.last_name || ''}`.trim()
+          : profile?.full_name || null,
+      },
+    }).catch(() => {}) // silent — fallback is the manual link
+
     setInviteLink(`${window.location.origin}/invite/${token}`)
     setSaving(false)
   }
@@ -87,7 +106,7 @@ const InviteModal = ({ onClose }) => {
     })
   }
 
-  const selectedRole = ROLE_OPTIONS.find((r) => r.value === role)
+  const selectedRole = ALL_ROLE_OPTIONS.find((r) => r.value === role)
 
   return (
     <div
@@ -127,7 +146,9 @@ const InviteModal = ({ onClose }) => {
                 Email Address
               </label>
               <input
-                type="email"
+                type="text"
+                inputMode="email"
+                autoComplete="email"
                 className="nura-input"
                 placeholder="team@property.com"
                 value={email}
@@ -141,7 +162,7 @@ const InviteModal = ({ onClose }) => {
               <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--nt4)', marginBottom: '8px' }}>
                 Role
               </label>
-              {ROLE_OPTIONS.map((opt) => (
+              {roleOptions.map((opt) => (
                 <div
                   key={opt.value}
                   onClick={() => setRole(opt.value)}

@@ -46,6 +46,16 @@ const BottomNav = ({ pendingCount = 0 }) => {
           </NavItem>
         )
       })}
+      {/* Settings — all roles */}
+      <NavItem to="/settings/admin" label="Settings">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <circle cx="10" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.5" />
+          <path
+            d="M10 3v1.5M10 15.5V17M3 10h1.5M15.5 10H17M5.05 5.05l1.06 1.06M13.89 13.89l1.06 1.06M5.05 14.95l1.06-1.06M13.89 6.11l1.06-1.06"
+            stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"
+          />
+        </svg>
+      </NavItem>
     </nav>
   )
 }

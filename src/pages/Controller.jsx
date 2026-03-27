@@ -1,19 +1,48 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { fmt, fmtFull, fmtPct, fmtPeriodLabel, getMonthRange } from '../lib/utils'
+import { fmt, fmtFull, fmtPeriodLabel, getMonthRange } from '../lib/utils'
+import { createPropertyWithDefaults } from '../lib/propertyUtils'
 
 // ── Controller / Portfolio screen ─────────────────────────────────────────────
-// Overview tab: static portfolio context (single pilot property).
-// Budgets tab: real GL code data from Supabase.
+// Overview tab: real portfolio data from ownedProperties / assignedProperties.
+// Budgets tab: real GL code data for the active property.
 // Month-End tab: real invoice data + working CSV export.
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 
+const TIMEZONES = [
+  { value: 'America/New_York',    label: 'Eastern (New York)' },
+  { value: 'America/Chicago',     label: 'Central (Chicago)' },
+  { value: 'America/Denver',      label: 'Mountain (Denver)' },
+  { value: 'America/Los_Angeles', label: 'Pacific (Los Angeles)' },
+  { value: 'America/Anchorage',   label: 'Alaska' },
+  { value: 'Pacific/Honolulu',    label: 'Hawaii' },
+]
+
+const lbl = {
+  display: 'block',
+  fontSize: '11px',
+  fontWeight: '700',
+  textTransform: 'uppercase',
+  letterSpacing: '0.8px',
+  color: 'var(--nt4)',
+  marginBottom: '6px',
+}
+
 const Controller = () => {
-  const { profile } = useAuth()
-  const propertyId   = profile?.property_id
-  const propertyName = profile?.properties?.name || 'Property'
+  const {
+    profile,
+    activePropertyId,
+    activeProperty,
+    setActiveProperty,
+    ownedProperties,
+    assignedProperties,
+    refreshProfile,
+  } = useAuth()
+
+  const isOwner = profile?.role === 'owner'
+  const properties = isOwner ? ownedProperties : assignedProperties
 
   const [tab, setTab] = useState('overview')
 
@@ -24,7 +53,7 @@ const Controller = () => {
 
   // Budgets tab data
   const [glCodes,       setGlCodes]       = useState([])
-  const [approvedSpend, setApprovedSpend] = useState({}) // { code: totalAmount }
+  const [approvedSpend, setApprovedSpend] = useState({})
   const [loadingBudgets, setLoadingBudgets] = useState(false)
 
   // Export tab data
@@ -32,17 +61,102 @@ const Controller = () => {
   const [loadingExport,  setLoadingExport]  = useState(false)
   const [exporting,      setExporting]      = useState(false)
 
-  const periodLabel = fmtPeriodLabel(year, month)
+  // Property activity data (for Live/Pending badges)
+  const [propertyActivity, setPropertyActivity] = useState({}) // { propertyId: boolean }
+  const [loadingActivity, setLoadingActivity]   = useState(false)
 
-  // ── Fetch budget data ──────────────────────────────────────────────────────
+  // Add / Edit property modal
+  const [showModal, setShowModal]     = useState(false)
+  const [editingProp, setEditingProp] = useState(null) // null = add, object = edit
+  const [modalForm, setModalForm]     = useState({ name: '', timezone: 'America/New_York', prime_cost_target: '62.0', type: '', city: '', location_count: '1' })
+  const [modalSaving, setModalSaving] = useState(false)
+  const [modalError, setModalError]   = useState(null)
+
+  const periodLabel = fmtPeriodLabel(year, month)
+  const activePropName = activeProperty?.name || 'Property'
+
+  // ── Fetch property activity (Live vs Pending) ────────────────────────────────
+  const fetchActivity = useCallback(async () => {
+    if (properties.length === 0) return
+    setLoadingActivity(true)
+    const { start, end } = getMonthRange(now.getFullYear(), now.getMonth() + 1)
+    const activity = {}
+
+    // Check each property for invoice or sales data this month
+    await Promise.all(
+      properties.map(async (p) => {
+        const [invRes, salesRes] = await Promise.all([
+          supabase
+            .from('invoices')
+            .select('id', { count: 'exact', head: true })
+            .eq('property_id', p.id)
+            .gte('invoice_date', start)
+            .lte('invoice_date', end),
+          supabase
+            .from('sales_entries')
+            .select('id', { count: 'exact', head: true })
+            .eq('property_id', p.id)
+            .gte('date', start)
+            .lte('date', end),
+        ])
+        activity[p.id] = (invRes.count || 0) > 0 || (salesRes.count || 0) > 0
+      })
+    )
+
+    setPropertyActivity(activity)
+    setLoadingActivity(false)
+  }, [properties.length])
+
+  useEffect(() => { fetchActivity() }, [fetchActivity])
+
+  // ── Fetch GL budget health (for Needs Attention / Healthy stats) ─────────────
+  const [budgetHealth, setBudgetHealth] = useState({ attention: 0, healthy: 0 })
+
+  const fetchBudgetHealth = useCallback(async () => {
+    if (properties.length === 0) return
+    const { start, end } = getMonthRange(now.getFullYear(), now.getMonth() + 1)
+    let attention = 0
+    let healthy = 0
+
+    await Promise.all(
+      properties.map(async (p) => {
+        const [glRes, invRes] = await Promise.all([
+          supabase.from('gl_codes').select('code, monthly_budget').eq('property_id', p.id).eq('is_active', true),
+          supabase.from('invoices').select('gl_code, amount').eq('property_id', p.id).eq('status', 'approved').gte('invoice_date', start).lte('invoice_date', end),
+        ])
+        const codes = glRes.data || []
+        const invs = invRes.data || []
+        if (codes.length === 0) return
+
+        const spend = {}
+        for (const inv of invs) {
+          spend[inv.gl_code] = (spend[inv.gl_code] || 0) + Number(inv.amount)
+        }
+        const hasOverBudget = codes.some(
+          (gl) => Number(gl.monthly_budget) > 0 && (spend[gl.code] || 0) > Number(gl.monthly_budget)
+        )
+        if (hasOverBudget) attention++
+        else healthy++
+      })
+    )
+
+    setBudgetHealth({ attention, healthy })
+  }, [properties.length])
+
+  useEffect(() => { fetchBudgetHealth() }, [fetchBudgetHealth])
+
+  // ── Computed summary stats ───────────────────────────────────────────────────
+  const activePilots = Object.values(propertyActivity).filter(Boolean).length
+
+  // ── Fetch budget data for active property ────────────────────────────────────
   const fetchBudgets = useCallback(async () => {
-    if (!propertyId) return
+    if (!activePropertyId) return
     setLoadingBudgets(true)
     const { start, end } = getMonthRange(year, month)
 
     const [glRes, invRes] = await Promise.all([
-      supabase.from('gl_codes').select('*').eq('property_id', propertyId).eq('is_active', true).order('sort_order'),
-      supabase.from('invoices').select('gl_code, amount').eq('property_id', propertyId).eq('status', 'approved').gte('invoice_date', start).lte('invoice_date', end),
+      supabase.from('gl_codes').select('*').eq('property_id', activePropertyId).eq('is_active', true).order('sort_order'),
+      supabase.from('invoices').select('gl_code, amount').eq('property_id', activePropertyId).eq('status', 'approved').gte('invoice_date', start).lte('invoice_date', end),
     ])
 
     const codes = glRes.data || []
@@ -54,18 +168,18 @@ const Controller = () => {
     setGlCodes(codes)
     setApprovedSpend(spend)
     setLoadingBudgets(false)
-  }, [propertyId, year, month])
+  }, [activePropertyId, year, month])
 
-  // ── Fetch export data ──────────────────────────────────────────────────────
+  // ── Fetch export data for active property ────────────────────────────────────
   const fetchExport = useCallback(async () => {
-    if (!propertyId) return
+    if (!activePropertyId) return
     setLoadingExport(true)
     const { start, end } = getMonthRange(year, month)
 
     const { data } = await supabase
       .from('invoices')
       .select('invoice_date, amount, description, gl_code, status, vendors(name)')
-      .eq('property_id', propertyId)
+      .eq('property_id', activePropertyId)
       .eq('status', 'approved')
       .gte('invoice_date', start)
       .lte('invoice_date', end)
@@ -73,15 +187,14 @@ const Controller = () => {
 
     setExportInvoices(data || [])
     setLoadingExport(false)
-  }, [propertyId, year, month])
+  }, [activePropertyId, year, month])
 
-  // Load data when tab switches
   useEffect(() => {
     if (tab === 'budgets') fetchBudgets()
     if (tab === 'export')  fetchExport()
   }, [tab, fetchBudgets, fetchExport])
 
-  // ── Period navigation ──────────────────────────────────────────────────────
+  // ── Period navigation ────────────────────────────────────────────────────────
   const prevMonth = () => {
     if (month === 1) { setYear(y => y - 1); setMonth(12) }
     else setMonth(m => m - 1)
@@ -92,10 +205,9 @@ const Controller = () => {
     else setMonth(m => m + 1)
   }
 
-  // ── CSV export ─────────────────────────────────────────────────────────────
+  // ── CSV export ───────────────────────────────────────────────────────────────
   const handleExport = async () => {
     setExporting(true)
-    // Ensure we have fresh data
     let rows = exportInvoices
     if (rows.length === 0) {
       await fetchExport()
@@ -119,44 +231,134 @@ const Controller = () => {
     const url  = URL.createObjectURL(blob)
     const a    = document.createElement('a')
     a.href     = url
-    a.download = `${propertyName}-GL-Report-${MONTHS[month - 1]}-${year}.csv`
+    a.download = `${activePropName}-GL-Report-${MONTHS[month - 1]}-${year}.csv`
     a.click()
     URL.revokeObjectURL(url)
     setExporting(false)
   }
 
-  // ── Computed export stats ──────────────────────────────────────────────────
-  const totalSpend  = exportInvoices.reduce((s, i) => s + Number(i.amount), 0)
+  // ── Property card click — switch active property ─────────────────────────────
+  const handlePropertyClick = (prop) => {
+    setActiveProperty(prop)
+  }
+
+  // ── Add / Edit property modal ────────────────────────────────────────────────
+  const openAddModal = () => {
+    setEditingProp(null)
+    setModalForm({ name: '', timezone: 'America/New_York', prime_cost_target: '62.0', type: '', city: '', location_count: '1' })
+    setModalError(null)
+    setShowModal(true)
+  }
+
+  const openEditModal = (prop) => {
+    setEditingProp(prop)
+    setModalForm({
+      name: prop.name || '',
+      timezone: prop.timezone || 'America/New_York',
+      prime_cost_target: String(prop.prime_cost_target ?? '62.0'),
+      type: prop.type || '',
+      city: prop.city || '',
+      location_count: String(prop.location_count ?? '1'),
+    })
+    setModalError(null)
+    setShowModal(true)
+  }
+
+  const handleModalSubmit = async (e) => {
+    e.preventDefault()
+    if (!modalForm.name.trim()) return
+    setModalSaving(true)
+    setModalError(null)
+
+    if (editingProp) {
+      // Update existing property
+      const { error } = await supabase
+        .from('properties')
+        .update({
+          name:             modalForm.name.trim(),
+          timezone:         modalForm.timezone,
+          prime_cost_target: parseFloat(modalForm.prime_cost_target) || 62.0,
+          type:             modalForm.type.trim() || null,
+          city:             modalForm.city.trim() || null,
+          location_count:   parseInt(modalForm.location_count) || 1,
+        })
+        .eq('id', editingProp.id)
+
+      setModalSaving(false)
+      if (error) { setModalError(error.message); return }
+    } else {
+      // Create new property with defaults
+      const { error } = await createPropertyWithDefaults({
+        name:             modalForm.name.trim(),
+        timezone:         modalForm.timezone,
+        prime_cost_target: parseFloat(modalForm.prime_cost_target) || 62.0,
+        type:             modalForm.type.trim() || null,
+        city:             modalForm.city.trim() || null,
+        location_count:   parseInt(modalForm.location_count) || 1,
+      }, profile.id)
+
+      setModalSaving(false)
+      if (error) { setModalError(error); return }
+    }
+
+    // Refresh properties in context
+    await refreshProfile()
+    setShowModal(false)
+  }
+
+  // ── Computed export stats ────────────────────────────────────────────────────
+  const totalSpend   = exportInvoices.reduce((s, i) => s + Number(i.amount), 0)
   const invoiceCount = exportInvoices.length
 
   return (
     <div className="screen">
       {/* ── Header ── */}
       <div className="screen-hdr">
-        <div className="font-newsreader" style={{ fontSize: '22px', fontWeight: 400 }}>Controller</div>
-        <span className="bdg bdg-blue">Donohoe Portfolio</span>
+        <div className="font-newsreader" style={{ fontSize: '22px', fontWeight: 400 }}>Portfolio</div>
+        {isOwner && (
+          <button
+            onClick={openAddModal}
+            style={{
+              background: 'var(--nt)',
+              color: 'white',
+              border: 'none',
+              borderRadius: 'var(--r-sm)',
+              padding: '6px 14px',
+              fontSize: '12px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              fontFamily: "'DM Sans', sans-serif",
+            }}
+          >
+            + Add Property
+          </button>
+        )}
       </div>
 
-      {/* ── Summary stats (static portfolio context) ── */}
+      {/* ── Summary stats (dynamic) ── */}
       <div className="stat-grid">
         <div className="stat-cell">
           <div className="stat-label">Properties</div>
-          <div className="stat-val">22</div>
-          <div className="stat-sub">Donohoe total</div>
+          <div className="stat-val">{properties.length}</div>
+          <div className="stat-sub">{isOwner ? 'Owned' : 'Assigned'}</div>
         </div>
         <div className="stat-cell">
           <div className="stat-label">Active Pilots</div>
-          <div className="stat-val">1</div>
-          <div className="stat-sub">SYN live</div>
+          <div className="stat-val">{loadingActivity ? '—' : activePilots}</div>
+          <div className="stat-sub">Data this month</div>
         </div>
         <div className="stat-cell">
           <div className="stat-label">Needs Attention</div>
-          <div className="stat-val" style={{ color: 'var(--orange)' }}>1</div>
-          <div className="stat-sub">Budget over</div>
+          <div className="stat-val" style={{ color: budgetHealth.attention > 0 ? 'var(--orange)' : 'var(--nt4)' }}>
+            {budgetHealth.attention}
+          </div>
+          <div className="stat-sub">Over budget</div>
         </div>
         <div className="stat-cell">
           <div className="stat-label">Healthy</div>
-          <div className="stat-val" style={{ color: 'var(--green)' }}>1</div>
+          <div className="stat-val" style={{ color: budgetHealth.healthy > 0 ? 'var(--green)' : 'var(--nt4)' }}>
+            {budgetHealth.healthy}
+          </div>
           <div className="stat-sub">On track</div>
         </div>
       </div>
@@ -189,50 +391,87 @@ const Controller = () => {
         ))}
       </div>
 
-      {/* ── Overview tab (static pilot context) ── */}
+      {/* ── Overview tab (real property cards) ── */}
       {tab === 'overview' && (
         <>
           <div className="section-label">Properties</div>
-          {[
-            {
-              id: 'syn', name: `${propertyName} — DC`,
-              subtitle: 'Donohoe · Live pilot',
-              live: true,
-            },
-            { id: 'p2', name: 'Property 2', subtitle: 'Donohoe · Not yet onboarded', live: false },
-            { id: 'p3', name: 'Property 3', subtitle: 'Donohoe · Not yet onboarded', live: false },
-          ].map((p) => (
-            <div
-              key={p.id}
-              className="nura-card"
-              style={{ display: 'flex', alignItems: 'center', gap: '12px', opacity: p.live ? 1 : 0.4 }}
-            >
-              <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: p.live ? 'var(--amber)' : 'var(--nt4)', flexShrink: 0 }} />
-              <div>
-                <div style={{ fontSize: '15px', fontWeight: '600', color: p.live ? 'var(--nt)' : 'var(--nt3)' }}>{p.name}</div>
-                <div style={{ fontSize: '12px', color: 'var(--nt3)' }}>{p.subtitle}</div>
-              </div>
-              <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-                {p.live ? (
-                  <span className="bdg bdg-amber">Live</span>
-                ) : (
-                  <span className="bdg bdg-neutral">Pending</span>
-                )}
-              </div>
+          {properties.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '32px', color: 'var(--nt4)', fontSize: '13px' }}>
+              No properties yet.{isOwner ? ' Add your first property above.' : ''}
             </div>
-          ))}
-          <div className="note-amber">
-            Full 22-property portfolio view unlocks as properties are onboarded. {propertyName} is the live pilot.
-          </div>
+          )}
+          {properties.map((p) => {
+            const isActive = p.id === activePropertyId
+            const isLive   = propertyActivity[p.id]
+            return (
+              <div
+                key={p.id}
+                onClick={() => handlePropertyClick(p)}
+                className="nura-card"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  cursor: 'pointer',
+                  border: isActive ? '2px solid var(--nt)' : '1px solid var(--nborder)',
+                  transition: 'border-color 0.15s',
+                }}
+              >
+                <div
+                  style={{
+                    width: '10px',
+                    height: '10px',
+                    borderRadius: '50%',
+                    background: isLive ? 'var(--amber)' : 'var(--nt4)',
+                    flexShrink: 0,
+                  }}
+                />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '15px', fontWeight: '600', color: 'var(--nt)' }}>
+                    {p.name}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--nt3)' }}>
+                    {[p.city, p.type].filter(Boolean).join(' · ') || p.timezone}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {isLive ? (
+                    <span className="bdg bdg-amber">Live</span>
+                  ) : (
+                    <span className="bdg bdg-neutral">Pending</span>
+                  )}
+                  {isActive && (
+                    <span className="bdg bdg-blue">Active</span>
+                  )}
+                  {isOwner && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); openEditModal(p) }}
+                      style={{
+                        background: 'none',
+                        border: '1px solid var(--nborder)',
+                        borderRadius: 'var(--r-sm)',
+                        padding: '3px 10px',
+                        fontSize: '11px',
+                        color: 'var(--nt3)',
+                        cursor: 'pointer',
+                        fontFamily: "'DM Sans', sans-serif",
+                      }}
+                    >
+                      Edit
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })}
         </>
       )}
 
-      {/* ── Budgets tab (real data) ── */}
+      {/* ── Budgets tab (real data for active property) ── */}
       {tab === 'budgets' && (
         <>
-          {/* Period selector */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-            <div className="section-label" style={{ marginBottom: 0 }}>Budget Authority — {propertyName}</div>
+            <div className="section-label" style={{ marginBottom: 0 }}>Budget Authority — {activePropName}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <button onClick={prevMonth} style={navBtnStyle}>‹</button>
               <span style={{ fontSize: '12px', color: 'var(--nt4)', minWidth: '70px', textAlign: 'center' }}>{periodLabel}</span>
@@ -245,7 +484,7 @@ const Controller = () => {
           ) : (
             <div className="nura-card">
               <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '10px' }}>
-                {propertyName} — {periodLabel}
+                {activePropName} — {periodLabel}
               </div>
               {glCodes.map(({ code, name, monthly_budget }) => {
                 const spent     = approvedSpend[code] || 0
@@ -279,12 +518,11 @@ const Controller = () => {
         </>
       )}
 
-      {/* ── Month-End Export tab (real data) ── */}
+      {/* ── Month-End Export tab (real data for active property) ── */}
       {tab === 'export' && (
         <>
-          {/* Period selector */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-            <div className="section-label" style={{ marginBottom: 0 }}>Month-End Export — {propertyName}</div>
+            <div className="section-label" style={{ marginBottom: 0 }}>Month-End Export — {activePropName}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <button onClick={prevMonth} style={navBtnStyle}>‹</button>
               <span style={{ fontSize: '12px', color: 'var(--nt4)', minWidth: '70px', textAlign: 'center' }}>{periodLabel}</span>
@@ -306,9 +544,9 @@ const Controller = () => {
                     {periodLabel} — {invoiceCount} approved {invoiceCount === 1 ? 'invoice' : 'invoices'} totalling {fmtFull(totalSpend)}.
                   </div>
                   {[
-                    ['Invoices coded', String(invoiceCount),       'var(--nt)'],
-                    ['Total spend',    fmtFull(totalSpend),        'var(--nt)'],
-                    ['Audit variance', '$0.00',                    'var(--green)'],
+                    ['Invoices coded', String(invoiceCount),  'var(--nt)'],
+                    ['Total spend',    fmtFull(totalSpend),   'var(--nt)'],
+                    ['Audit variance', '$0.00',               'var(--green)'],
                   ].map(([label, value, color]) => (
                     <div
                       key={label}
@@ -338,6 +576,125 @@ const Controller = () => {
             </div>
           )}
         </>
+      )}
+
+      {/* ── Add / Edit Property Modal ── */}
+      {showModal && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
+            zIndex: 200, display: 'flex', alignItems: 'flex-end',
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowModal(false) }}
+        >
+          <div
+            style={{
+              background: 'var(--nsurf)',
+              borderRadius: '20px 20px 0 0',
+              padding: '24px 20px 36px',
+              width: '100%',
+              maxWidth: '480px',
+              margin: '0 auto',
+            }}
+          >
+            <div style={{ width: '36px', height: '4px', background: 'var(--nborder)', borderRadius: '2px', margin: '0 auto 20px' }} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+              <div className="font-newsreader" style={{ fontSize: '20px', fontWeight: 400 }}>
+                {editingProp ? 'Edit Property' : 'Add Property'}
+              </div>
+              <button
+                onClick={() => setShowModal(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--nt3)', fontSize: '18px', padding: '4px' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleModalSubmit}>
+              <div style={{ marginBottom: '14px' }}>
+                <label style={lbl}>Property name</label>
+                <input
+                  type="text"
+                  className="nura-input"
+                  placeholder="e.g. SYN"
+                  value={modalForm.name}
+                  onChange={(e) => setModalForm(f => ({ ...f, name: e.target.value }))}
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={lbl}>City</label>
+                  <input
+                    type="text"
+                    className="nura-input"
+                    placeholder="e.g. Washington DC"
+                    value={modalForm.city}
+                    onChange={(e) => setModalForm(f => ({ ...f, city: e.target.value }))}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={lbl}>Type</label>
+                  <input
+                    type="text"
+                    className="nura-input"
+                    placeholder="e.g. Fine dining"
+                    value={modalForm.type}
+                    onChange={(e) => setModalForm(f => ({ ...f, type: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '14px' }}>
+                <label style={lbl}>Timezone</label>
+                <select
+                  className="nura-select"
+                  value={modalForm.timezone}
+                  onChange={(e) => setModalForm(f => ({ ...f, timezone: e.target.value }))}
+                >
+                  {TIMEZONES.map(tz => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={lbl}>Prime cost target (%)</label>
+                  <input
+                    type="number"
+                    className="nura-input"
+                    placeholder="62.0"
+                    step="0.1"
+                    min="0"
+                    max="200"
+                    value={modalForm.prime_cost_target}
+                    onChange={(e) => setModalForm(f => ({ ...f, prime_cost_target: e.target.value }))}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={lbl}>Location count</label>
+                  <input
+                    type="number"
+                    className="nura-input"
+                    placeholder="1"
+                    min="1"
+                    value={modalForm.location_count}
+                    onChange={(e) => setModalForm(f => ({ ...f, location_count: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              {modalError && (
+                <div style={{ fontSize: '13px', color: 'var(--red)', marginBottom: '10px' }}>{modalError}</div>
+              )}
+
+              <button type="submit" className="btn-primary" disabled={modalSaving || !modalForm.name.trim()}>
+                {modalSaving ? 'Saving…' : editingProp ? 'Update Property' : 'Create Property'}
+              </button>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   )

@@ -48,8 +48,8 @@ const BudgetCard = ({ name, code, budget, spent, remaining, utilPct }) => {
 }
 
 const Budgets = () => {
-  const { profile } = useAuth()
-  const propertyId = profile?.property_id
+  const { activePropertyId } = useAuth()
+  const propertyId = activePropertyId
 
   const [budgets, setBudgets]   = useState([])
   const [loading, setLoading]   = useState(true)

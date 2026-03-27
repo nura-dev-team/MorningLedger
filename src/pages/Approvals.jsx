@@ -186,8 +186,8 @@ const ApprovalCard = ({ invoice, budgetContext, onApprove, onHold }) => {
 // ── Main component ────────────────────────────────────────────────────────────
 
 const Approvals = () => {
-  const { profile } = useAuth()
-  const propertyId = profile?.property_id
+  const { profile, activePropertyId } = useAuth()
+  const propertyId = activePropertyId
 
   const [invoices,      setInvoices]      = useState([])
   const [budgetContext, setBudgetContext] = useState({}) // { glCode: { remaining, name } }

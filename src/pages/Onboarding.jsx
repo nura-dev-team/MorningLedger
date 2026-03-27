@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { fmt, fmtFull, fmtPct } from '../lib/utils'
+import { createPropertyWithDefaults } from '../lib/propertyUtils'
 
 // ── Onboarding — Zero to Value in 48 Hours ────────────────────────────────────
 // 7-step onboarding that ends with real data on the dashboard.
@@ -18,8 +19,8 @@ import { fmt, fmtFull, fmtPct } from '../lib/utils'
 //   7  invoice    — First invoice inline form + processing animation (skippable)
 //   —  done       — Live dashboard snapshot: prime cost, sales, food budget, invoices
 
-const STEPS = ['welcome', 'property', 'gl', 'sales', 'labor', 'invoice', 'done']
-const TOTAL_STEPS = 6 // welcome → invoice; done is the completion screen
+const STEPS = ['welcome', 'property', 'gl', 'sales', 'labor', 'invoice', 'done', 'more-properties']
+const TOTAL_STEPS = 6 // welcome → invoice; done and more-properties are completion screens
 
 const STEP_LABEL = {
   welcome:  'Welcome',
@@ -82,11 +83,17 @@ const Onboarding = () => {
   const { profile, refreshProfile } = useAuth()
   const navigate = useNavigate()
 
-  const [step, setStep] = useState('welcome')
+  // If returning from DelegationFork Card 1 ("I'll set it up myself"),
+  // profile already has a property — resume at GL step, not welcome
+  const resumeStep = (profile?.property_id && profile?.properties) ? 'gl' : 'welcome'
+
+  const [step, setStep] = useState(resumeStep)
   const stepIdx = STEPS.indexOf(step)
 
-  // Shared state persisted across steps
-  const [createdProperty, setCreatedProperty] = useState(null) // { id, name, ... }
+  // Shared state persisted across steps — restore from profile if returning
+  const [createdProperty, setCreatedProperty] = useState(
+    (profile?.property_id && profile?.properties) ? profile.properties : null
+  )
   const [budgets,         setBudgets]         = useState(DEFAULT_GL_CODES.map(g => ({ ...g })))
 
   // ── Step 2: Property ────────────────────────────────────────────────────────
@@ -234,18 +241,20 @@ const Onboarding = () => {
     const { error: profileErr } = await supabase
       .from('profiles')
       .update({
-        property_id:        newProp.id,
-        role:               'owner',
-        onboarding_complete: true,
-        first_name:         meta.first_name || null,
-        last_name:          meta.last_name || null,
+        property_id:         newProp.id,
+        role:                'owner',
+        onboarding_complete: false,
+        first_name:          meta.first_name || null,
+        last_name:           meta.last_name || null,
       })
       .eq('id', profile.id)
 
     setPropLoading(false)
     if (profileErr) { setPropError(profileErr.message); return }
 
-    advance()
+    // Route to Delegation Fork — owner chooses self-setup vs controller delegation
+    await refreshProfile()
+    navigate('/onboarding/who-sets-up')
   }
 
   const handleGl = async () => {
@@ -403,8 +412,42 @@ const Onboarding = () => {
     advance()
   }
 
-  const handleOpenNura = () => {
+  const handleOpenNura = async () => {
+    // Mark onboarding as complete so ProtectedRoute allows dashboard access
+    await supabase
+      .from('profiles')
+      .update({ onboarding_complete: true })
+      .eq('id', profile.id)
+    await refreshProfile()
     navigate('/', { replace: true })
+  }
+
+  // ── More properties step state ────────────────────────────────────────────
+  const [addPropForm, setAddPropForm] = useState({ name: '', timezone: 'America/New_York', prime_cost_target: '62.0' })
+  const [addPropLoading, setAddPropLoading] = useState(false)
+  const [addPropError, setAddPropError]     = useState(null)
+
+  const handleAddAnotherProperty = async () => {
+    if (!addPropForm.name.trim()) return
+    setAddPropLoading(true)
+    setAddPropError(null)
+
+    const { property: newProp, error } = await createPropertyWithDefaults({
+      name:              addPropForm.name.trim(),
+      timezone:          addPropForm.timezone,
+      prime_cost_target: parseFloat(addPropForm.prime_cost_target) || 62.0,
+    }, profile.id)
+
+    setAddPropLoading(false)
+
+    if (error) { setAddPropError(error); return }
+
+    // Reset form for another add
+    setAddPropForm({ name: '', timezone: 'America/New_York', prime_cost_target: '62.0' })
+
+    // Update createdProperty to the new one and go back to done screen
+    setCreatedProperty(newProp)
+    setStep('done')
   }
 
   // ── Sales form: auto-calc total ─────────────────────────────────────────────
@@ -423,8 +466,8 @@ const Onboarding = () => {
   // ── Progress bar ────────────────────────────────────────────────────────────
 
   const stepNum   = stepIdx + 1 // 1-7 for welcome→invoice; 8 for done (unused)
-  const showProg  = step !== 'done'
-  const showBack  = stepIdx > 0 && step !== 'done'
+  const showProg  = step !== 'done' && step !== 'more-properties'
+  const showBack  = stepIdx > 0 && step !== 'done' && step !== 'more-properties'
   const progWidth = `${(stepNum / TOTAL_STEPS) * 100}%`
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -913,9 +956,135 @@ const Onboarding = () => {
               </div>
             )}
 
-            <button className="btn-primary" onClick={handleOpenNura}>
-              Open NURA →
+            <button className="btn-primary" onClick={advance}>
+              Continue →
             </button>
+          </div>
+        )}
+
+        {/* ══════════════════════════════════════════════════
+            MORE PROPERTIES — optional portfolio expansion
+        ══════════════════════════════════════════════════ */}
+        {step === 'more-properties' && (
+          <div style={{ paddingTop: '16px' }}>
+            <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+              <div className="font-newsreader" style={{ fontSize: '28px', marginBottom: '8px' }}>
+                Do you have more properties?
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '24px' }}>
+              {/* Card 1 — Add another property */}
+              <div
+                onClick={() => {
+                  // Show inline form below
+                  document.getElementById('add-prop-form')?.scrollIntoView({ behavior: 'smooth' })
+                }}
+                style={{
+                  background: 'var(--nsurf)',
+                  border: '1px solid var(--nborder)',
+                  borderRadius: 'var(--r, 12px)',
+                  padding: '28px 20px',
+                  cursor: 'pointer',
+                  textAlign: 'center',
+                  transition: 'border-color 0.15s, background 0.15s',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--nt)'; e.currentTarget.style.background = 'var(--nsurf-alt)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--nborder)'; e.currentTarget.style.background = 'var(--nsurf)' }}
+              >
+                <div style={{ fontSize: '16px', fontWeight: '600', color: 'var(--nt)', marginBottom: '8px', lineHeight: '1.3' }}>
+                  Add another property
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--nt3)', lineHeight: '1.5' }}>
+                  Set up an additional location in your portfolio now
+                </div>
+              </div>
+
+              {/* Card 2 — Done for now */}
+              <div
+                onClick={handleOpenNura}
+                style={{
+                  background: 'var(--nsurf)',
+                  border: '1px solid var(--nborder)',
+                  borderRadius: 'var(--r, 12px)',
+                  padding: '28px 20px',
+                  cursor: 'pointer',
+                  textAlign: 'center',
+                  transition: 'border-color 0.15s, background 0.15s',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--nt)'; e.currentTarget.style.background = 'var(--nsurf-alt)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--nborder)'; e.currentTarget.style.background = 'var(--nsurf)' }}
+              >
+                <div style={{ fontSize: '16px', fontWeight: '600', color: 'var(--nt)', marginBottom: '8px', lineHeight: '1.3' }}>
+                  I'm done for now
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--nt3)', lineHeight: '1.5' }}>
+                  You can add more properties anytime from your Controller dashboard
+                </div>
+              </div>
+            </div>
+
+            {/* Inline add property form */}
+            <div id="add-prop-form">
+              <div className="font-newsreader" style={{ fontSize: '22px', marginBottom: '6px' }}>New property</div>
+              <div style={{ fontSize: '13px', color: 'var(--nt3)', marginBottom: '16px', lineHeight: '1.6' }}>
+                This property will get its own GL codes, vendors, and budgets.
+              </div>
+
+              <div className="nura-card" style={{ marginBottom: '12px' }}>
+                <div style={fieldWrap}>
+                  <label style={lbl}>Property name</label>
+                  <input
+                    type="text"
+                    className="nura-input"
+                    placeholder="e.g. The Hamilton"
+                    value={addPropForm.name}
+                    onChange={(e) => setAddPropForm(f => ({ ...f, name: e.target.value }))}
+                    autoFocus
+                  />
+                </div>
+                <div style={fieldWrap}>
+                  <label style={lbl}>Timezone</label>
+                  <select
+                    className="nura-select"
+                    value={addPropForm.timezone}
+                    onChange={(e) => setAddPropForm(f => ({ ...f, timezone: e.target.value }))}
+                  >
+                    {TIMEZONES.map(tz => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={lbl}>Prime cost target (%)</label>
+                  <input
+                    type="number"
+                    className="nura-input"
+                    placeholder="62.0"
+                    step="0.1"
+                    min="0"
+                    max="200"
+                    value={addPropForm.prime_cost_target}
+                    onChange={(e) => setAddPropForm(f => ({ ...f, prime_cost_target: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              {addPropError && <div style={{ fontSize: '13px', color: 'var(--red)', marginBottom: '10px' }}>{addPropError}</div>}
+
+              <button
+                className="btn-primary"
+                onClick={handleAddAnotherProperty}
+                disabled={addPropLoading || !addPropForm.name.trim()}
+                style={{ marginBottom: '10px' }}
+              >
+                {addPropLoading ? 'Creating…' : 'Create Property & Continue'}
+              </button>
+              <button
+                onClick={handleOpenNura}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--nt4)', fontSize: '13px', display: 'block', textAlign: 'center', width: '100%', padding: '8px 0' }}
+              >
+                Skip — go to dashboard
+              </button>
+            </div>
           </div>
         )}
 

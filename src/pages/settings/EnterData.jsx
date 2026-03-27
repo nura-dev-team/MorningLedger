@@ -10,9 +10,9 @@ import { useAuth } from '../../context/AuthContext'
 const TABS = ['sales', 'labor', 'budgets']
 
 const EnterData = () => {
-  const { profile } = useAuth()
+  const { profile, activePropertyId } = useAuth()
   const navigate = useNavigate()
-  const propertyId = profile?.property_id
+  const propertyId = activePropertyId
 
   const [tab, setTab] = useState('sales')
 

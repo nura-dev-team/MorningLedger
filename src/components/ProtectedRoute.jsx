@@ -16,7 +16,7 @@ const ProtectedRoute = ({ requireProperty = true }) => {
   // Not authenticated → login
   if (!session) return <Navigate to="/login" replace />
 
-  // Authenticated but no property
+  // Authenticated but no property → must onboard
   if (requireProperty && !profile?.property_id) {
     // Check for pending invite stored during the invite accept flow
     const pendingInvite = sessionStorage.getItem('pendingInviteToken')
@@ -26,8 +26,19 @@ const ProtectedRoute = ({ requireProperty = true }) => {
     return <Navigate to="/onboarding" replace />
   }
 
-  // Authenticated WITH property — redirect away from onboarding
+  // Authenticated with property but onboarding not complete → stay in onboarding
+  // Invited users (non-owner) never set onboarding_complete — they skip onboarding entirely
+  // via AcceptInvite, so they'll have property_id and role != 'owner', which passes through.
+  if (requireProperty && profile?.property_id && profile?.role === 'owner' && profile?.onboarding_complete === false) {
+    return <Navigate to="/onboarding" replace />
+  }
+
+  // Onboarding complete (or non-owner) — redirect away from onboarding routes
   if (!requireProperty && profile?.property_id) {
+    // Owners mid-onboarding should stay
+    if (profile?.role === 'owner' && profile?.onboarding_complete === false) {
+      return <Outlet />
+    }
     return <Navigate to="/" replace />
   }
 

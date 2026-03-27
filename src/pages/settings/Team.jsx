@@ -23,9 +23,9 @@ const ROLE_BADGE_CLASS = {
 }
 
 const Team = () => {
-  const { profile } = useAuth()
+  const { profile, activePropertyId } = useAuth()
   const navigate    = useNavigate()
-  const propertyId  = profile?.property_id
+  const propertyId  = activePropertyId
 
   const [members,      setMembers]      = useState([])
   const [invites,      setInvites]      = useState([])
@@ -93,17 +93,21 @@ const Team = () => {
           ← Back
         </button>
         <div className="font-newsreader" style={{ fontSize: '18px', fontWeight: 400 }}>Team</div>
-        <button
-          onClick={() => setShowInvite(true)}
-          style={{
-            background: 'var(--nt)', color: 'white', border: 'none',
-            borderRadius: 'var(--r-sm)', padding: '6px 12px',
-            fontFamily: "'DM Sans', sans-serif", fontSize: '13px',
-            fontWeight: '600', cursor: 'pointer',
-          }}
-        >
-          + Invite
-        </button>
+        {(profile?.role === 'owner' || profile?.role === 'controller') ? (
+          <button
+            onClick={() => setShowInvite(true)}
+            style={{
+              background: 'var(--nt)', color: 'white', border: 'none',
+              borderRadius: 'var(--r-sm)', padding: '6px 12px',
+              fontFamily: "'DM Sans', sans-serif", fontSize: '13px',
+              fontWeight: '600', cursor: 'pointer',
+            }}
+          >
+            + Invite
+          </button>
+        ) : (
+          <div style={{ width: '40px' }} />
+        )}
       </div>
 
       {showInvite && (

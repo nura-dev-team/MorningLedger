@@ -13,8 +13,8 @@ const PROCESSING_STEPS = [
 ]
 
 const AddInvoiceModal = ({ onClose, onSuccess }) => {
-  const { profile } = useAuth()
-  const propertyId = profile?.property_id
+  const { activePropertyId } = useAuth()
+  const propertyId = activePropertyId
 
   // Form state
   const [form, setForm] = useState({

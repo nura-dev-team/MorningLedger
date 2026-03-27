@@ -6,17 +6,17 @@ import BottomNav from './BottomNav'
 import Sidebar   from './Sidebar'
 
 const Layout = () => {
-  const { profile } = useAuth()
+  const { profile, activePropertyId } = useAuth()
   const [pendingCount, setPendingCount] = useState(0)
 
   useEffect(() => {
-    if (!profile?.property_id) return
+    if (!activePropertyId) return
 
     const fetchPending = async () => {
       const { count } = await supabase
         .from('invoices')
         .select('id', { count: 'exact', head: true })
-        .eq('property_id', profile.property_id)
+        .eq('property_id', activePropertyId)
         .eq('status', 'pending')
 
       setPendingCount(count || 0)
@@ -28,13 +28,13 @@ const Layout = () => {
       .channel('pending-invoices')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'invoices', filter: `property_id=eq.${profile.property_id}` },
+        { event: '*', schema: 'public', table: 'invoices', filter: `property_id=eq.${activePropertyId}` },
         fetchPending
       )
       .subscribe()
 
     return () => supabase.removeChannel(channel)
-  }, [profile?.property_id])
+  }, [activePropertyId])
 
   return (
     <div style={{ background: 'var(--nbg)', minHeight: '100dvh' }}>

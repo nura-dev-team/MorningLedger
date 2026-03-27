@@ -7,8 +7,8 @@ import { fmt, fmtFull, fmtDateShort, getMonthRange, fmtPeriodLabel } from '../li
 // Queries invoices + vendors from Supabase for the current month.
 
 const Ledger = () => {
-  const { profile } = useAuth()
-  const propertyId = profile?.property_id
+  const { activePropertyId } = useAuth()
+  const propertyId = activePropertyId
 
   const [tab, setTab] = useState('invoices')
   const [loading, setLoading] = useState(true)

@@ -7,9 +7,9 @@ import { fmt, fmtPct, getMonthRange, primeCostStatus, getPrimeCostNarrative, get
 // Queries sales_entries, labor_entries, and invoices for the current month.
 
 const PrimeCost = () => {
-  const { profile } = useAuth()
-  const propertyId = profile?.property_id
-  const target = profile?.properties?.prime_cost_target ?? 62.0
+  const { profile, activePropertyId, activeProperty } = useAuth()
+  const propertyId = activePropertyId
+  const target = activeProperty?.prime_cost_target ?? 62.0
 
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState(null)

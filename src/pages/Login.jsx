@@ -137,7 +137,9 @@ const Login = () => {
             <div style={{ marginBottom: '14px' }}>
               <label style={lbl}>Email</label>
               <input
-                type="email"
+                type="text"
+                inputMode="email"
+                autoComplete="email"
                 className="nura-input"
                 placeholder="you@yourrestaurant.com"
                 value={email}
@@ -262,7 +264,9 @@ const Login = () => {
             >
               <label style={lbl}>Sign in with magic link</label>
               <input
-                type="email"
+                type="text"
+                inputMode="email"
+                autoComplete="email"
                 className="nura-input"
                 placeholder="you@yourrestaurant.com"
                 value={mlEmail}

@@ -20,7 +20,8 @@ import EnterData    from './pages/settings/EnterData'
 import Admin        from './pages/settings/Admin'
 import Team         from './pages/settings/Team'
 import AcceptInvite    from './pages/AcceptInvite'
-import DelegationFork from './pages/onboarding/DelegationFork'
+import DelegationFork  from './pages/onboarding/DelegationFork'
+import DelegateSetup   from './pages/onboarding/DelegateSetup'
 
 // ── Shared label style ──────────────────────────────────────────────────────
 const lbl = {
@@ -188,7 +189,7 @@ const OwnerSignup = () => {
             {/* Email */}
             <div style={{ marginBottom: '14px' }}>
               <label style={lbl}>Work email</label>
-              <input type="email" className="nura-input" placeholder="you@yourrestaurant.com" value={form.email} onChange={update('email')} />
+              <input type="text" inputMode="email" autoComplete="email" className="nura-input" placeholder="you@yourrestaurant.com" value={form.email} onChange={update('email')} />
               {fieldErr('email')}
             </div>
 
@@ -267,6 +268,7 @@ const App = () => {
       <Route element={<ProtectedRoute requireProperty={false} />}>
         <Route path="/onboarding" element={<Onboarding />} />
         <Route path="/onboarding/who-sets-up" element={<DelegationFork />} />
+        <Route path="/onboarding/delegate" element={<DelegateSetup />} />
       </Route>
 
       {/* Main app — requires auth + property */}
