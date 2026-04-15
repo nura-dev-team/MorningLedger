@@ -316,32 +316,37 @@ const AddInvoiceModal = ({ onClose, onSuccess }) => {
 
 // ── Overlay wrapper ───────────────────────────────────────────────────────────
 
-const Overlay = ({ children, onClose }) => (
-  <div
-    style={{
-      position: 'fixed',
-      inset: 0,
-      zIndex: 1000,
-      display: 'flex',
-      alignItems: 'flex-end',
-      background: 'rgba(0,0,0,0.4)',
-    }}
-    onClick={(e) => { if (e.target === e.currentTarget && onClose) onClose() }}
-  >
+const Overlay = ({ children, onClose }) => {
+  const isDesktop = window.innerWidth >= 768
+  return (
     <div
       style={{
-        width: '100%',
-        maxHeight: '92dvh',
-        overflowY: 'auto',
-        background: 'var(--nbg)',
-        borderRadius: 'var(--r) var(--r) 0 0',
-        padding: '20px 16px 40px',
+        position: 'fixed',
+        inset: 0,
+        zIndex: 1000,
+        display: 'flex',
+        alignItems: isDesktop ? 'center' : 'flex-end',
+        justifyContent: isDesktop ? 'center' : 'stretch',
+        background: 'rgba(0,0,0,0.4)',
       }}
+      onClick={(e) => { if (e.target === e.currentTarget && onClose) onClose() }}
     >
-      {children}
+      <div
+        style={{
+          width: '100%',
+          maxWidth: '480px',
+          maxHeight: '92dvh',
+          overflowY: 'auto',
+          background: 'var(--nbg)',
+          borderRadius: isDesktop ? 'var(--r)' : 'var(--r) var(--r) 0 0',
+          padding: '20px 16px 40px',
+        }}
+      >
+        {children}
+      </div>
     </div>
-  </div>
-)
+  )
+}
 
 const labelStyle = {
   display: 'block',

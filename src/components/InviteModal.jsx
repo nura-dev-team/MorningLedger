@@ -108,18 +108,22 @@ const InviteModal = ({ onClose }) => {
 
   const selectedRole = ALL_ROLE_OPTIONS.find((r) => r.value === role)
 
+  const isDesktop = window.innerWidth >= 768
+
   return (
     <div
       style={{
         position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
-        zIndex: 200, display: 'flex', alignItems: 'flex-end',
+        zIndex: 200, display: 'flex',
+        alignItems: isDesktop ? 'center' : 'flex-end',
+        justifyContent: isDesktop ? 'center' : 'stretch',
       }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <div
         style={{
           background: 'var(--nsurf)',
-          borderRadius: '20px 20px 0 0',
+          borderRadius: isDesktop ? '20px' : '20px 20px 0 0',
           padding: '24px 20px 36px',
           width: '100%',
           maxWidth: '480px',

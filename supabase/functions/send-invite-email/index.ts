@@ -1,8 +1,11 @@
+// deno-lint-ignore-file
+/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
+// @ts-nocheck — This file runs on Deno (Supabase Edge Functions), not Node.js
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const FROM_EMAIL = "NURA <nura@getnura.io>";
-const BASE_URL = "https://morningledger.vercel.app";
+const BASE_URL = "https://morning-ledger.vercel.app";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

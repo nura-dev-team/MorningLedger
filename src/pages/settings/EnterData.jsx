@@ -7,7 +7,7 @@ import { useAuth } from '../../context/AuthContext'
 // Manual sales + labor entry + budget adjustment.
 // Will be replaced by POS/7shifts integrations in Phase 2.
 
-const TABS = ['sales', 'labor', 'budgets']
+const TABS = ['sales', 'labor', 'budgets', 'vendors']
 
 const EnterData = () => {
   const { profile, activePropertyId } = useAuth()
@@ -106,6 +106,56 @@ const EnterData = () => {
   const [savingBudgets,  setSavingBudgets]  = useState(false)
   const [budgetsSuccess, setBudgetsSuccess] = useState(false)
   const [budgetsError,   setBudgetsError]   = useState(null)
+
+  // ── Vendors state ─────────────────────────────────────────────────────────
+  const [vendors,        setVendors]        = useState([])
+  const [loadingVendors, setLoadingVendors] = useState(false)
+  const [savingVendor,   setSavingVendor]   = useState(false)
+  const [vendorSuccess,  setVendorSuccess]  = useState(false)
+  const [vendorError,    setVendorError]    = useState(null)
+  const [vendorForm,     setVendorForm]     = useState({
+    name: '', default_gl_code: '', delivery_frequency: '', is_active: true,
+  })
+  const [vendorGlCodes,  setVendorGlCodes]  = useState([])
+
+  // Load vendors + GL codes when Vendors tab is opened
+  useEffect(() => {
+    if (tab !== 'vendors' || !propertyId) return
+    setLoadingVendors(true)
+    Promise.all([
+      supabase.from('vendors').select('*').eq('property_id', propertyId).order('name'),
+      supabase.from('gl_codes').select('id, code, name').eq('property_id', propertyId).eq('is_active', true).order('sort_order'),
+    ]).then(([vendorRes, glRes]) => {
+      setVendors(vendorRes.data || [])
+      setVendorGlCodes(glRes.data || [])
+      setLoadingVendors(false)
+    })
+  }, [tab, propertyId])
+
+  const submitVendor = async (e) => {
+    e.preventDefault()
+    if (!propertyId || !vendorForm.name.trim()) return
+    setSavingVendor(true)
+    setVendorError(null)
+
+    const { data, error } = await supabase.from('vendors').insert({
+      property_id:        propertyId,
+      name:               vendorForm.name.trim(),
+      default_gl_code:    vendorForm.default_gl_code || null,
+      delivery_frequency: vendorForm.delivery_frequency || null,
+      is_active:          vendorForm.is_active,
+    }).select().single()
+
+    setSavingVendor(false)
+    if (error) {
+      setVendorError(error.message)
+    } else {
+      setVendors((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)))
+      setVendorForm({ name: '', default_gl_code: '', delivery_frequency: '', is_active: true })
+      setVendorSuccess(true)
+      setTimeout(() => setVendorSuccess(false), 3000)
+    }
+  }
 
   // Load GL codes when Budgets tab is opened
   useEffect(() => {
@@ -209,7 +259,7 @@ const EnterData = () => {
               cursor: 'pointer',
             }}
           >
-            {t === 'sales' ? 'Sales' : t === 'labor' ? 'Labor' : 'Budgets'}
+            {t === 'sales' ? 'Sales' : t === 'labor' ? 'Labor' : t === 'budgets' ? 'Budgets' : 'Vendors'}
           </button>
         ))}
       </div>
@@ -309,6 +359,121 @@ const EnterData = () => {
             </>
           )}
         </form>
+      )}
+      {/* ── Vendors tab ── */}
+      {tab === 'vendors' && (
+        <>
+          {loadingVendors ? (
+            <div style={{ textAlign: 'center', padding: '32px', color: 'var(--nt4)', fontSize: '13px' }}>Loading…</div>
+          ) : (
+            <>
+              {/* Existing vendors list */}
+              {vendors.length > 0 && (
+                <div className="nura-card" style={{ marginBottom: '16px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--nt4)', marginBottom: '10px' }}>
+                    Current Vendors
+                  </div>
+                  {vendors.map((v, i) => (
+                    <div
+                      key={v.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '8px 0',
+                        borderBottom: i < vendors.length - 1 ? '1px solid var(--nborder)' : 'none',
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontSize: '14px', fontWeight: '500' }}>{v.name}</div>
+                        <div style={{ fontSize: '12px', color: 'var(--nt4)' }}>
+                          {v.default_gl_code && <span className="gl-pill">{v.default_gl_code}</span>}
+                          {v.delivery_frequency && <span style={{ marginLeft: v.default_gl_code ? '6px' : 0 }}>{v.delivery_frequency}</span>}
+                        </div>
+                      </div>
+                      <span style={{ fontSize: '11px', fontWeight: '600', color: v.is_active ? 'var(--green)' : 'var(--nt4)' }}>
+                        {v.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {vendors.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '24px', color: 'var(--nt4)', fontSize: '13px', marginBottom: '16px' }}>
+                  No vendors yet. Add your first vendor below.
+                </div>
+              )}
+
+              {/* Add Vendor form */}
+              <form onSubmit={submitVendor}>
+                <div className="nura-card" style={{ marginBottom: '12px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--nt4)', marginBottom: '10px' }}>
+                    Add Vendor
+                  </div>
+                  <Field
+                    label="Vendor name"
+                    value={vendorForm.name}
+                    onChange={(e) => setVendorForm((f) => ({ ...f, name: e.target.value }))}
+                    placeholder="e.g. US Foods"
+                    required
+                  />
+                  <div style={{ marginBottom: '14px' }}>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--nt4)', marginBottom: '6px' }}>
+                      Default GL Code
+                    </label>
+                    <select
+                      className="nura-input"
+                      value={vendorForm.default_gl_code}
+                      onChange={(e) => setVendorForm((f) => ({ ...f, default_gl_code: e.target.value }))}
+                    >
+                      <option value="">— None —</option>
+                      {vendorGlCodes.map((gl) => (
+                        <option key={gl.id} value={gl.code}>
+                          {gl.name}{gl.code ? ` (${gl.code})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <Field
+                    label="Delivery frequency"
+                    value={vendorForm.delivery_frequency}
+                    onChange={(e) => setVendorForm((f) => ({ ...f, delivery_frequency: e.target.value }))}
+                    placeholder="e.g. Weekly"
+                  />
+                  <div style={{ marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--nt4)' }}>
+                      Active
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setVendorForm((f) => ({ ...f, is_active: !f.is_active }))}
+                      style={{
+                        width: '40px', height: '22px', borderRadius: '11px', border: 'none', cursor: 'pointer',
+                        background: vendorForm.is_active ? 'var(--green, #22c55e)' : 'var(--nborder)',
+                        position: 'relative', transition: 'background 0.2s',
+                      }}
+                    >
+                      <span style={{
+                        position: 'absolute', top: '2px',
+                        left: vendorForm.is_active ? '20px' : '2px',
+                        width: '18px', height: '18px', borderRadius: '50%',
+                        background: 'white', transition: 'left 0.2s',
+                      }} />
+                    </button>
+                  </div>
+                </div>
+
+                {vendorError   && <div style={{ fontSize: '13px', color: 'var(--red)',   marginBottom: '10px' }}>{vendorError}</div>}
+                {vendorSuccess && <div className="note-green" style={{ marginBottom: '10px' }}>✓ Vendor added.</div>}
+
+                <button type="submit" className="btn-primary" disabled={savingVendor}>
+                  {savingVendor ? 'Saving…' : 'Add Vendor'}
+                </button>
+              </form>
+            </>
+          )}
+        </>
       )}
     </div>
   )

@@ -1,28 +1,19 @@
 import { supabase } from './supabase'
 
-// ── Default GL codes and vendors seeded for every new property ────────────────
+// ── Default GL code categories seeded for every new property ─────────────────
 
 const DEFAULT_GL_CODES = [
-  { code: '5217250', name: 'Food Purchases',     category: 'food',     monthly_budget: 0, sort_order: 1 },
-  { code: '5217257', name: 'Liquor',             category: 'liquor',   monthly_budget: 0, sort_order: 2 },
-  { code: '5217255', name: 'Wine',               category: 'wine',     monthly_budget: 0, sort_order: 3 },
-  { code: '5217258', name: 'Beer',               category: 'beer',     monthly_budget: 0, sort_order: 4 },
-  { code: '5217275', name: 'Operating Supplies', category: 'supplies', monthly_budget: 0, sort_order: 5 },
-  { code: '5217280', name: 'Uniforms',           category: 'uniforms', monthly_budget: 0, sort_order: 6 },
-]
-
-const DEFAULT_VENDORS = [
-  { name: 'Baldor',    default_gl_code: '5217250', delivery_frequency: 'Twice weekly' },
-  { name: 'US Foods',  default_gl_code: '5217250', delivery_frequency: 'Weekly' },
-  { name: 'Keany',     default_gl_code: '5217250', delivery_frequency: 'Weekly' },
-  { name: 'Profish',   default_gl_code: '5217250', delivery_frequency: 'Weekly' },
-  { name: 'Breakthru', default_gl_code: '5217257', delivery_frequency: 'Weekly' },
-  { name: 'Alsco',     default_gl_code: '5217275', delivery_frequency: 'Weekly' },
+  { code: '', name: 'Food Purchases',     category: 'food',     monthly_budget: 0, sort_order: 1 },
+  { code: '', name: 'Liquor',             category: 'liquor',   monthly_budget: 0, sort_order: 2 },
+  { code: '', name: 'Wine',               category: 'wine',     monthly_budget: 0, sort_order: 3 },
+  { code: '', name: 'Beer',               category: 'beer',     monthly_budget: 0, sort_order: 4 },
+  { code: '', name: 'Operating Supplies', category: 'supplies', monthly_budget: 0, sort_order: 5 },
+  { code: '', name: 'Uniforms',           category: 'uniforms', monthly_budget: 0, sort_order: 6 },
 ]
 
 /**
- * Create a new property row, seed 6 default GL codes and 6 default vendors.
- * Used by both the Controller "Add Property" modal and the Onboarding portfolio step.
+ * Create a new property row and seed 6 default GL code categories.
+ * Vendors are no longer auto-seeded — operators add them via Settings > Enter Data > Vendors.
  *
  * @param {Object} formData — { name, timezone, prime_cost_target, type?, city?, location_count? }
  * @param {string} ownerId  — profile.id of the owner creating the property
@@ -48,7 +39,7 @@ export const createPropertyWithDefaults = async (formData, ownerId) => {
 
   const propertyId = newProp.id
 
-  // 2. Seed default GL codes (monthly_budget = 0)
+  // 2. Seed default GL code categories (code blank, monthly_budget = 0)
   const glRows = DEFAULT_GL_CODES.map((gl) => ({
     property_id:    propertyId,
     code:           gl.code,
@@ -59,17 +50,6 @@ export const createPropertyWithDefaults = async (formData, ownerId) => {
   }))
 
   await supabase.from('gl_codes').insert(glRows)
-
-  // 3. Seed default vendors
-  const vendorRows = DEFAULT_VENDORS.map((v) => ({
-    property_id:        propertyId,
-    name:               v.name,
-    default_gl_code:    v.default_gl_code,
-    delivery_frequency: v.delivery_frequency,
-    is_active:          true,
-  }))
-
-  await supabase.from('vendors').insert(vendorRows)
 
   return { property: newProp, error: null }
 }

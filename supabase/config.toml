@@ -1,0 +1,8 @@
+[project]
+id = "qihavywnpozkxqwosmze"
+
+[api]
+enabled = true
+
+[functions.send-invite-email]
+verify_jwt = false

@@ -230,11 +230,9 @@ const OwnerSignup = () => {
   )
 }
 
-// Route controllers to /controller, everyone else to /
+// Home screen for all roles — controllers see the same dashboard as everyone else.
+// Initial post-login routing for controllers is handled by AcceptInvite / ROLE_HOME.
 const RoleHome = () => {
-  const { profile } = useAuth()
-  const role = profile?.role
-  if (role === 'controller') return <Navigate to="/controller" replace />
   return <Home />
 }
 

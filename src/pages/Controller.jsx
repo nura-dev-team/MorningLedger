@@ -71,6 +71,11 @@ const Controller = () => {
   const [modalForm, setModalForm]     = useState({ name: '', timezone: 'America/New_York', prime_cost_target: '62.0', type: '', city: '', location_count: '1' })
   const [modalSaving, setModalSaving] = useState(false)
   const [modalError, setModalError]   = useState(null)
+  const [modalStep, setModalStep]     = useState('form') // 'form' | 'gl-codes'
+  const [newPropId, setNewPropId]     = useState(null)
+  const [glBudgets, setGlBudgets]     = useState([])
+  const [glSaving, setGlSaving]       = useState(false)
+  const [glSaveError, setGlSaveError] = useState(null)
 
   const periodLabel = fmtPeriodLabel(year, month)
   const activePropName = activeProperty?.name || 'Property'
@@ -247,6 +252,10 @@ const Controller = () => {
     setEditingProp(null)
     setModalForm({ name: '', timezone: 'America/New_York', prime_cost_target: '62.0', type: '', city: '', location_count: '1' })
     setModalError(null)
+    setModalStep('form')
+    setNewPropId(null)
+    setGlBudgets([])
+    setGlSaveError(null)
     setShowModal(true)
   }
 
@@ -288,7 +297,7 @@ const Controller = () => {
       if (error) { setModalError(error.message); return }
     } else {
       // Create new property with defaults
-      const { error } = await createPropertyWithDefaults({
+      const { property, error } = await createPropertyWithDefaults({
         name:             modalForm.name.trim(),
         timezone:         modalForm.timezone,
         prime_cost_target: parseFloat(modalForm.prime_cost_target) || 62.0,
@@ -299,10 +308,52 @@ const Controller = () => {
 
       setModalSaving(false)
       if (error) { setModalError(error); return }
+
+      // Transition to GL codes step
+      setNewPropId(property.id)
+      // Fetch the seeded GL codes for the new property
+      const { data: seededGl } = await supabase
+        .from('gl_codes')
+        .select('id, code, name, category, monthly_budget, sort_order')
+        .eq('property_id', property.id)
+        .order('sort_order')
+      setGlBudgets((seededGl || []).map(g => ({ ...g })))
+      setModalStep('gl-codes')
+      await refreshProfile()
+      return
     }
 
-    // Refresh properties in context
+    // Refresh properties in context (edit path)
     await refreshProfile()
+    setShowModal(false)
+  }
+
+  // ── GL codes step handlers ───────────────────────────────────────────────────
+  const handleGlSave = async () => {
+    if (!newPropId) return
+    setGlSaving(true)
+    setGlSaveError(null)
+
+    const rows = glBudgets.map(g => ({
+      id:             g.id,
+      property_id:    newPropId,
+      code:           g.code,
+      name:           g.name,
+      category:       g.category,
+      monthly_budget: parseFloat(g.monthly_budget) || 0,
+      sort_order:     g.sort_order,
+    }))
+
+    const { error } = await supabase
+      .from('gl_codes')
+      .upsert(rows, { onConflict: 'id' })
+
+    setGlSaving(false)
+    if (error) { setGlSaveError(error.message); return }
+    setShowModal(false)
+  }
+
+  const handleGlSkip = () => {
     setShowModal(false)
   }
 
@@ -579,18 +630,22 @@ const Controller = () => {
       )}
 
       {/* ── Add / Edit Property Modal ── */}
-      {showModal && (
+      {showModal && (() => {
+        const isDesktop = window.innerWidth >= 768
+        return (
         <div
           style={{
             position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
-            zIndex: 200, display: 'flex', alignItems: 'flex-end',
+            zIndex: 200, display: 'flex',
+            alignItems: isDesktop ? 'center' : 'flex-end',
+            justifyContent: isDesktop ? 'center' : 'stretch',
           }}
           onClick={(e) => { if (e.target === e.currentTarget) setShowModal(false) }}
         >
           <div
             style={{
               background: 'var(--nsurf)',
-              borderRadius: '20px 20px 0 0',
+              borderRadius: isDesktop ? '20px' : '20px 20px 0 0',
               padding: '24px 20px 36px',
               width: '100%',
               maxWidth: '480px',
@@ -600,7 +655,9 @@ const Controller = () => {
             <div style={{ width: '36px', height: '4px', background: 'var(--nborder)', borderRadius: '2px', margin: '0 auto 20px' }} />
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
               <div className="font-newsreader" style={{ fontSize: '20px', fontWeight: 400 }}>
-                {editingProp ? 'Edit Property' : 'Add Property'}
+                {modalStep === 'gl-codes'
+                  ? `Set up GL codes for ${modalForm.name.trim()}`
+                  : editingProp ? 'Edit Property' : 'Add Property'}
               </div>
               <button
                 onClick={() => setShowModal(false)}
@@ -610,92 +667,171 @@ const Controller = () => {
               </button>
             </div>
 
-            <form onSubmit={handleModalSubmit}>
-              <div style={{ marginBottom: '14px' }}>
-                <label style={lbl}>Property name</label>
-                <input
-                  type="text"
-                  className="nura-input"
-                  placeholder="e.g. SYN"
-                  value={modalForm.name}
-                  onChange={(e) => setModalForm(f => ({ ...f, name: e.target.value }))}
-                  required
-                  autoFocus
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
-                <div style={{ flex: 1 }}>
-                  <label style={lbl}>City</label>
+            {/* ── Step 1: Property form ── */}
+            {modalStep === 'form' && (
+              <form onSubmit={handleModalSubmit}>
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={lbl}>Property name</label>
                   <input
                     type="text"
                     className="nura-input"
-                    placeholder="e.g. Washington DC"
-                    value={modalForm.city}
-                    onChange={(e) => setModalForm(f => ({ ...f, city: e.target.value }))}
+                    placeholder="e.g. SYN"
+                    value={modalForm.name}
+                    onChange={(e) => setModalForm(f => ({ ...f, name: e.target.value }))}
+                    required
+                    autoFocus
                   />
                 </div>
-                <div style={{ flex: 1 }}>
-                  <label style={lbl}>Type</label>
-                  <input
-                    type="text"
-                    className="nura-input"
-                    placeholder="e.g. Fine dining"
-                    value={modalForm.type}
-                    onChange={(e) => setModalForm(f => ({ ...f, type: e.target.value }))}
-                  />
-                </div>
-              </div>
 
-              <div style={{ marginBottom: '14px' }}>
-                <label style={lbl}>Timezone</label>
-                <select
-                  className="nura-select"
-                  value={modalForm.timezone}
-                  onChange={(e) => setModalForm(f => ({ ...f, timezone: e.target.value }))}
+                <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={lbl}>City</label>
+                    <input
+                      type="text"
+                      className="nura-input"
+                      placeholder="e.g. Washington DC"
+                      value={modalForm.city}
+                      onChange={(e) => setModalForm(f => ({ ...f, city: e.target.value }))}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={lbl}>Type</label>
+                    <input
+                      type="text"
+                      className="nura-input"
+                      placeholder="e.g. Fine dining"
+                      value={modalForm.type}
+                      onChange={(e) => setModalForm(f => ({ ...f, type: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={lbl}>Timezone</label>
+                  <select
+                    className="nura-select"
+                    value={modalForm.timezone}
+                    onChange={(e) => setModalForm(f => ({ ...f, timezone: e.target.value }))}
+                  >
+                    {TIMEZONES.map(tz => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={lbl}>Prime cost target (%)</label>
+                    <input
+                      type="number"
+                      className="nura-input"
+                      placeholder="62.0"
+                      step="0.1"
+                      min="0"
+                      max="200"
+                      value={modalForm.prime_cost_target}
+                      onChange={(e) => setModalForm(f => ({ ...f, prime_cost_target: e.target.value }))}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={lbl}>Location count</label>
+                    <input
+                      type="number"
+                      className="nura-input"
+                      placeholder="1"
+                      min="1"
+                      value={modalForm.location_count}
+                      onChange={(e) => setModalForm(f => ({ ...f, location_count: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                {modalError && (
+                  <div style={{ fontSize: '13px', color: 'var(--red)', marginBottom: '10px' }}>{modalError}</div>
+                )}
+
+                <button type="submit" className="btn-primary" disabled={modalSaving || !modalForm.name.trim()}>
+                  {modalSaving ? 'Saving…' : editingProp ? 'Update Property' : 'Create Property'}
+                </button>
+              </form>
+            )}
+
+            {/* ── Step 2: GL codes setup (after create only) ── */}
+            {modalStep === 'gl-codes' && (
+              <div>
+                <div style={{ fontSize: '13px', color: 'var(--nt3)', marginBottom: '16px', lineHeight: '1.6' }}>
+                  Enter GL code numbers if you have them and set monthly budgets. Code numbers are optional.
+                </div>
+
+                <div className="nura-card" style={{ marginBottom: '14px' }}>
+                  {glBudgets.map((g, i) => (
+                    <div
+                      key={g.id}
+                      style={{
+                        padding: '9px 0',
+                        borderBottom: i < glBudgets.length - 1 ? '1px solid var(--nborder)' : 'none',
+                      }}
+                    >
+                      <div style={{ fontSize: '14px', fontWeight: '500', marginBottom: '6px' }}>{g.name}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <input
+                          type="text"
+                          placeholder="e.g. 5200 — leave blank if unknown"
+                          value={g.code}
+                          onChange={e => {
+                            const val = e.target.value
+                            setGlBudgets(prev => prev.map((x, j) => j === i ? { ...x, code: val } : x))
+                          }}
+                          style={{
+                            flex: 1, border: '1px solid var(--nborder)', borderRadius: '6px',
+                            padding: '5px 8px', fontFamily: "'DM Sans', sans-serif", fontSize: '13px',
+                            background: 'var(--nsurf)', color: 'var(--nt)',
+                          }}
+                        />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span style={{ fontSize: '13px', color: 'var(--nt3)' }}>$</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={g.monthly_budget}
+                            onChange={e => {
+                              const val = parseFloat(e.target.value) || 0
+                              setGlBudgets(prev => prev.map((x, j) => j === i ? { ...x, monthly_budget: val } : x))
+                            }}
+                            style={{
+                              width: '90px', border: '1px solid var(--nborder)', borderRadius: '6px',
+                              padding: '5px 8px', fontFamily: "'DM Sans', sans-serif", fontSize: '13px',
+                              textAlign: 'right', background: 'var(--nsurf)', color: 'var(--nt)',
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {glSaveError && <div style={{ fontSize: '13px', color: 'var(--red)', marginBottom: '10px' }}>{glSaveError}</div>}
+
+                <button className="btn-primary" onClick={handleGlSave} disabled={glSaving}>
+                  {glSaving ? 'Saving…' : 'Save GL Codes'}
+                </button>
+
+                <button
+                  onClick={handleGlSkip}
+                  style={{
+                    display: 'block', width: '100%', marginTop: '10px',
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: 'var(--nt3)', fontSize: '13px', textAlign: 'center',
+                    fontFamily: "'DM Sans', sans-serif", padding: '8px',
+                  }}
                 >
-                  {TIMEZONES.map(tz => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
-                </select>
+                  Skip for now
+                </button>
               </div>
-
-              <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
-                <div style={{ flex: 1 }}>
-                  <label style={lbl}>Prime cost target (%)</label>
-                  <input
-                    type="number"
-                    className="nura-input"
-                    placeholder="62.0"
-                    step="0.1"
-                    min="0"
-                    max="200"
-                    value={modalForm.prime_cost_target}
-                    onChange={(e) => setModalForm(f => ({ ...f, prime_cost_target: e.target.value }))}
-                  />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={lbl}>Location count</label>
-                  <input
-                    type="number"
-                    className="nura-input"
-                    placeholder="1"
-                    min="1"
-                    value={modalForm.location_count}
-                    onChange={(e) => setModalForm(f => ({ ...f, location_count: e.target.value }))}
-                  />
-                </div>
-              </div>
-
-              {modalError && (
-                <div style={{ fontSize: '13px', color: 'var(--red)', marginBottom: '10px' }}>{modalError}</div>
-              )}
-
-              <button type="submit" className="btn-primary" disabled={modalSaving || !modalForm.name.trim()}>
-                {modalSaving ? 'Saving…' : editingProp ? 'Update Property' : 'Create Property'}
-              </button>
-            </form>
+            )}
           </div>
         </div>
-      )}
+        )
+      })()}
     </div>
   )
 }
