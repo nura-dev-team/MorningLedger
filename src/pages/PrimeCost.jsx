@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { generatePrimeCostAnalysis } from '../lib/claudeApi'
@@ -9,6 +10,7 @@ import { fmt, fmtFull, fmtPct, fmtDateShort, getMonthRange, primeCostStatus } fr
 const PrimeCost = () => {
   const { activePropertyId, activeProperty } = useAuth()
   const propertyId = activePropertyId
+  const location = useLocation()
   const target = activeProperty?.prime_cost_target ?? 62.0
 
   const [loading, setLoading] = useState(true)
@@ -178,6 +180,7 @@ const PrimeCost = () => {
   }, [propertyId, year, month])
 
   useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => { if (totalSales > 0) fetchData() }, [location.key])
 
   // Derived
   const combined = fbCogs + totalLabor

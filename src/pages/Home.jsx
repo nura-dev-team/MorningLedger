@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { generateDashboardNarrative } from '../lib/claudeApi'
@@ -47,6 +47,7 @@ function vendorAvatar(name) {
 const Home = () => {
   const { profile, activePropertyId, activeProperty } = useAuth()
   const [searchParams] = useSearchParams()
+  const location = useLocation()
   const setupPending = searchParams.get('setup') === 'pending'
   const propertyId = activePropertyId
 
@@ -148,6 +149,10 @@ const Home = () => {
   }, [propertyId, year, month, periodReady, activeProperty?.prime_cost_target])
 
   useEffect(() => { fetchDashboard() }, [fetchDashboard])
+
+  // Re-fetch when navigating back to Home (e.g. after editing budgets in Settings)
+  const locationKey = location.key
+  useEffect(() => { if (data) fetchDashboard() }, [locationKey])
 
   // ── AI narrative ──────────────────────────────────────────────────────────
 

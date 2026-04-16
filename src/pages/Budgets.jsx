@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { fmt, getMonthRange, budgetStatus } from '../lib/utils'
@@ -102,6 +102,7 @@ const BudgetCard = ({ name, code, budget, spent, remaining, utilPct }) => {
 
 const Budgets = () => {
   const { activePropertyId, periodYear: year, periodMonth: month } = useAuth()
+  const location = useLocation()
   const propertyId = activePropertyId
 
   const [budgets, setBudgets]   = useState([])
@@ -196,6 +197,7 @@ const Budgets = () => {
   }, [propertyId, year, month])
 
   useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => { if (budgets.length > 0) fetchData() }, [location.key])
 
   const overCount = budgets.filter((b) => b.remaining < 0).length
 
