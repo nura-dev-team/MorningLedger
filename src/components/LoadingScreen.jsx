@@ -5,22 +5,28 @@ const LoadingScreen = () => (
       alignItems: 'center',
       justifyContent: 'center',
       height: '100dvh',
-      background: 'var(--nbg)',
+      background: 'var(--bg)',
       flexDirection: 'column',
-      gap: '16px',
+      animation: 'fadeIn 600ms ease forwards',
     }}
   >
     <div
       style={{
         fontFamily: "'Newsreader', serif",
-        fontSize: '13px',
-        letterSpacing: '3px',
+        fontSize: '28px',
+        letterSpacing: '8px',
         textTransform: 'uppercase',
-        color: 'var(--nt4)',
+        color: 'var(--text)',
       }}
     >
       NURA
     </div>
+    <style>{`
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+      }
+    `}</style>
   </div>
 )
 
