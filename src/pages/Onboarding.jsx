@@ -247,7 +247,7 @@ const Onboarding = () => {
 
     const glRows = categories.map((name, i) => ({
       property_id:    propertyId,
-      code:           '',
+      code:           name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, ''),
       name,
       category:       name.toLowerCase(),
       monthly_budget: 0,
