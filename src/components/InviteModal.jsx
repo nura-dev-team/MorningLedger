@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 
@@ -110,33 +110,42 @@ const InviteModal = ({ onClose }) => {
 
   const isDesktop = window.innerWidth >= 768
 
+  useEffect(() => {
+    const handleKeyDown = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
+
   return (
     <div
       style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
-        zIndex: 200, display: 'flex',
+        position: 'fixed', inset: 0, background: 'var(--overlay-heavy)',
+        zIndex: 999, display: 'flex',
         alignItems: isDesktop ? 'center' : 'flex-end',
         justifyContent: isDesktop ? 'center' : 'stretch',
+        animation: 'fade-in 0.15s ease-out',
       }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <div
         style={{
-          background: 'var(--nsurf)',
-          borderRadius: isDesktop ? '20px' : '20px 20px 0 0',
-          padding: '24px 20px 36px',
+          background: 'var(--surface)',
+          borderRadius: isDesktop ? 'var(--r-lg)' : '20px 20px 0 0',
+          padding: '24px 24px 32px',
           width: '100%',
           maxWidth: '480px',
           margin: '0 auto',
+          animation: isDesktop ? 'modal-enter 0.2s ease-out' : 'modal-enter-mobile 0.25s ease-out',
         }}
       >
         {/* Handle + header */}
-        <div style={{ width: '36px', height: '4px', background: 'var(--nborder)', borderRadius: '2px', margin: '0 auto 20px' }} />
+        <div style={{ width: '36px', height: '4px', background: 'var(--border)', borderRadius: '2px', margin: '0 auto 20px' }} />
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
           <div className="font-newsreader" style={{ fontSize: '20px', fontWeight: 400 }}>Invite Member</div>
           <button
             onClick={onClose}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--nt3)', fontSize: '18px', padding: '4px' }}
+            aria-label="Close"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', fontSize: '18px', padding: '8px', minWidth: '36px', minHeight: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
             ✕
           </button>
@@ -146,7 +155,7 @@ const InviteModal = ({ onClose }) => {
           <form onSubmit={handleSubmit}>
             {/* Email */}
             <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--nt4)', marginBottom: '6px' }}>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text-4)', marginBottom: '6px' }}>
                 Email Address
               </label>
               <input
@@ -163,34 +172,45 @@ const InviteModal = ({ onClose }) => {
 
             {/* Role */}
             <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--nt4)', marginBottom: '8px' }}>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text-4)', marginBottom: '8px' }}>
                 Role
               </label>
-              {roleOptions.map((opt) => (
-                <div
-                  key={opt.value}
-                  onClick={() => setRole(opt.value)}
-                  style={{
-                    display: 'flex', alignItems: 'flex-start', gap: '10px',
-                    padding: '11px 13px', borderRadius: 'var(--r-sm)', marginBottom: '6px',
-                    border: `1px solid ${role === opt.value ? 'var(--nt)' : 'var(--nborder)'}`,
-                    background: role === opt.value ? 'var(--nsurf-alt)' : 'var(--nsurf)',
-                    cursor: 'pointer', transition: 'border-color 0.1s',
-                  }}
-                >
-                  <div
+              <div role="radiogroup" aria-label="Role">
+                {roleOptions.map((opt) => (
+                  <label
+                    key={opt.value}
                     style={{
-                      width: '16px', height: '16px', borderRadius: '50%', marginTop: '1px', flexShrink: 0,
-                      border: `2px solid ${role === opt.value ? 'var(--nt)' : 'var(--nborder)'}`,
-                      background: role === opt.value ? 'var(--nt)' : 'transparent',
+                      display: 'flex', alignItems: 'flex-start', gap: '10px',
+                      padding: '12px 14px', borderRadius: 'var(--r-sm)', marginBottom: '6px',
+                      border: `1px solid ${role === opt.value ? 'var(--text)' : 'var(--border)'}`,
+                      background: role === opt.value ? 'var(--surface-alt)' : 'var(--surface)',
+                      cursor: 'pointer', transition: 'border-color 0.15s',
                     }}
-                  />
-                  <div>
-                    <div style={{ fontSize: '14px', fontWeight: '500', color: 'var(--nt)' }}>{opt.label}</div>
-                    <div style={{ fontSize: '12px', color: 'var(--nt3)', marginTop: '2px', lineHeight: '1.4' }}>{opt.desc}</div>
-                  </div>
-                </div>
-              ))}
+                  >
+                    <input
+                      type="radio"
+                      name="role"
+                      value={opt.value}
+                      checked={role === opt.value}
+                      onChange={() => setRole(opt.value)}
+                      style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }}
+                    />
+                    <div
+                      aria-hidden="true"
+                      style={{
+                        width: '16px', height: '16px', borderRadius: '50%', marginTop: '1px', flexShrink: 0,
+                        border: `2px solid ${role === opt.value ? 'var(--text)' : 'var(--border)'}`,
+                        background: role === opt.value ? 'var(--text)' : 'transparent',
+                        transition: 'border-color 0.15s, background 0.15s',
+                      }}
+                    />
+                    <div>
+                      <div style={{ fontSize: '14px', fontWeight: '500', color: 'var(--text)' }}>{opt.label}</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-3)', marginTop: '2px', lineHeight: '1.4' }}>{opt.desc}</div>
+                    </div>
+                  </label>
+                ))}
+              </div>
             </div>
 
             {error && (
@@ -209,7 +229,7 @@ const InviteModal = ({ onClose }) => {
             </div>
 
             <div style={{ marginBottom: '8px' }}>
-              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--nt4)', marginBottom: '6px' }}>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text-4)', marginBottom: '6px' }}>
                 Invite Link
               </label>
               <div style={{ display: 'flex', gap: '8px' }}>
@@ -217,16 +237,16 @@ const InviteModal = ({ onClose }) => {
                   readOnly
                   value={inviteLink}
                   className="nura-input"
-                  style={{ fontSize: '12px', color: 'var(--nt3)' }}
+                  style={{ fontSize: '12px', color: 'var(--text-3)' }}
                   onClick={(e) => e.target.select()}
                 />
                 <button
                   onClick={handleCopy}
                   style={{
                     flexShrink: 0, padding: '0 16px',
-                    background: copied ? 'var(--green)' : 'var(--nsurf-alt)',
-                    border: '1px solid var(--nborder)', borderRadius: 'var(--r-sm)',
-                    color: copied ? 'white' : 'var(--nt)', fontSize: '13px', fontWeight: '600',
+                    background: copied ? 'var(--green)' : 'var(--surface-alt)',
+                    border: '1px solid var(--border)', borderRadius: 'var(--r-sm)',
+                    color: copied ? 'white' : 'var(--text)', fontSize: '13px', fontWeight: '600',
                     cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
                   }}
                 >
@@ -235,8 +255,8 @@ const InviteModal = ({ onClose }) => {
               </div>
             </div>
 
-            <div style={{ fontSize: '12px', color: 'var(--nt4)', marginBottom: '16px' }}>
-              Link expires in 7 days. Share this directly — no email is sent automatically.
+            <div style={{ fontSize: '12px', color: 'var(--text-4)', marginBottom: '16px' }}>
+              Link expires in 7 days. An invite email has been sent — you can also share this link directly.
             </div>
 
             <button

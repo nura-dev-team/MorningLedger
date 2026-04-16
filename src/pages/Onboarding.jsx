@@ -61,7 +61,7 @@ const lbl = {
   textTransform: 'uppercase',
   letterSpacing: '0.8px',
   color: 'var(--text-4)',
-  marginBottom: '6px',
+  marginBottom: '8px',
 }
 
 const fieldWrap = { marginBottom: '14px' }

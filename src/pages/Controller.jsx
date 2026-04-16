@@ -26,8 +26,8 @@ const lbl = {
   fontWeight: '700',
   textTransform: 'uppercase',
   letterSpacing: '0.8px',
-  color: 'var(--nt4)',
-  marginBottom: '6px',
+  color: 'var(--text-4)',
+  marginBottom: '8px',
 }
 
 const Controller = () => {
@@ -46,10 +46,9 @@ const Controller = () => {
 
   const [tab, setTab] = useState('overview')
 
-  // Period
-  const now = new Date()
-  const [year,  setYear]  = useState(now.getFullYear())
-  const [month, setMonth] = useState(now.getMonth() + 1)
+  // Period — use fresh Date() in callbacks, not a stale closure
+  const [year,  setYear]  = useState(() => new Date().getFullYear())
+  const [month, setMonth] = useState(() => new Date().getMonth() + 1)
 
   // Budgets tab data
   const [glCodes,       setGlCodes]       = useState([])
@@ -84,7 +83,8 @@ const Controller = () => {
   const fetchActivity = useCallback(async () => {
     if (properties.length === 0) return
     setLoadingActivity(true)
-    const { start, end } = getMonthRange(now.getFullYear(), now.getMonth() + 1)
+    const n = new Date()
+    const { start, end } = getMonthRange(n.getFullYear(), n.getMonth() + 1)
     const activity = {}
 
     // Check each property for invoice or sales data this month
@@ -119,7 +119,8 @@ const Controller = () => {
 
   const fetchBudgetHealth = useCallback(async () => {
     if (properties.length === 0) return
-    const { start, end } = getMonthRange(now.getFullYear(), now.getMonth() + 1)
+    const n = new Date()
+    const { start, end } = getMonthRange(n.getFullYear(), n.getMonth() + 1)
     let attention = 0
     let healthy = 0
 
@@ -205,7 +206,8 @@ const Controller = () => {
     else setMonth(m => m - 1)
   }
   const nextMonth = () => {
-    if (year === now.getFullYear() && month === now.getMonth() + 1) return
+    const n = new Date()
+    if (year === n.getFullYear() && month === n.getMonth() + 1) return
     if (month === 12) { setYear(y => y + 1); setMonth(1) }
     else setMonth(m => m + 1)
   }
@@ -213,16 +215,27 @@ const Controller = () => {
   // ── CSV export ───────────────────────────────────────────────────────────────
   const handleExport = async () => {
     setExporting(true)
+
+    // If no data loaded yet, fetch it directly and use the result (not stale state)
     let rows = exportInvoices
     if (rows.length === 0) {
-      await fetchExport()
-      rows = exportInvoices
+      const { start, end } = getMonthRange(year, month)
+      const { data } = await supabase
+        .from('invoices')
+        .select('invoice_date, amount, description, gl_code, status, vendors(name)')
+        .eq('property_id', activePropertyId)
+        .eq('status', 'approved')
+        .gte('invoice_date', start)
+        .lte('invoice_date', end)
+        .order('invoice_date')
+      rows = data || []
+      setExportInvoices(rows)
     }
 
     const header = ['Date', 'Vendor', 'Description', 'Amount', 'GL Code', 'Status']
     const csvRows = [
       header.join(','),
-      ...exportInvoices.map((inv) => [
+      ...rows.map((inv) => [
         inv.invoice_date,
         `"${(inv.vendors?.name || '').replace(/"/g, '""')}"`,
         `"${(inv.description || '').replace(/"/g, '""')}"`,
@@ -370,8 +383,8 @@ const Controller = () => {
           <button
             onClick={openAddModal}
             style={{
-              background: 'var(--nt)',
-              color: 'white',
+              background: 'var(--amber)',
+              color: '#FFFFFF',
               border: 'none',
               borderRadius: 'var(--r-sm)',
               padding: '6px 14px',
@@ -400,14 +413,14 @@ const Controller = () => {
         </div>
         <div className="stat-cell">
           <div className="stat-label">Needs Attention</div>
-          <div className="stat-val" style={{ color: budgetHealth.attention > 0 ? 'var(--orange)' : 'var(--nt4)' }}>
+          <div className="stat-val" style={{ color: budgetHealth.attention > 0 ? 'var(--orange)' : 'var(--text-4)' }}>
             {budgetHealth.attention}
           </div>
           <div className="stat-sub">Over budget</div>
         </div>
         <div className="stat-cell">
           <div className="stat-label">Healthy</div>
-          <div className="stat-val" style={{ color: budgetHealth.healthy > 0 ? 'var(--green)' : 'var(--nt4)' }}>
+          <div className="stat-val" style={{ color: budgetHealth.healthy > 0 ? 'var(--green)' : 'var(--text-4)' }}>
             {budgetHealth.healthy}
           </div>
           <div className="stat-sub">On track</div>
@@ -428,9 +441,9 @@ const Controller = () => {
               flex: 1,
               padding: '7px',
               borderRadius: 'var(--r-sm)',
-              border: '1px solid var(--nborder)',
-              background: tab === key ? 'var(--nt)' : 'var(--nsurf)',
-              color: tab === key ? 'white' : 'var(--nt3)',
+              border: '1px solid var(--border)',
+              background: tab === key ? 'var(--amber)' : 'var(--surface)',
+              color: tab === key ? '#0A0A0A' : 'var(--text-3)',
               fontFamily: "'DM Sans', sans-serif",
               fontSize: '12px',
               fontWeight: '600',
@@ -447,7 +460,7 @@ const Controller = () => {
         <>
           <div className="section-label">Properties</div>
           {properties.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '32px', color: 'var(--nt4)', fontSize: '13px' }}>
+            <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-4)', fontSize: '13px' }}>
               No properties yet.{isOwner ? ' Add your first property above.' : ''}
             </div>
           )}
@@ -464,7 +477,7 @@ const Controller = () => {
                   alignItems: 'center',
                   gap: '12px',
                   cursor: 'pointer',
-                  border: isActive ? '2px solid var(--nt)' : '1px solid var(--nborder)',
+                  border: isActive ? '2px solid var(--amber)' : '1px solid var(--border)',
                   transition: 'border-color 0.15s',
                 }}
               >
@@ -473,15 +486,15 @@ const Controller = () => {
                     width: '10px',
                     height: '10px',
                     borderRadius: '50%',
-                    background: isLive ? 'var(--amber)' : 'var(--nt4)',
+                    background: isLive ? 'var(--amber)' : 'var(--text-4)',
                     flexShrink: 0,
                   }}
                 />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '15px', fontWeight: '600', color: 'var(--nt)' }}>
+                  <div style={{ fontSize: '15px', fontWeight: '600', color: 'var(--text)' }}>
                     {p.name}
                   </div>
-                  <div style={{ fontSize: '12px', color: 'var(--nt3)' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--text-3)' }}>
                     {[p.city, p.type].filter(Boolean).join(' · ') || p.timezone}
                   </div>
                 </div>
@@ -499,11 +512,11 @@ const Controller = () => {
                       onClick={(e) => { e.stopPropagation(); openEditModal(p) }}
                       style={{
                         background: 'none',
-                        border: '1px solid var(--nborder)',
+                        border: '1px solid var(--border)',
                         borderRadius: 'var(--r-sm)',
                         padding: '3px 10px',
                         fontSize: '11px',
-                        color: 'var(--nt3)',
+                        color: 'var(--text-3)',
                         cursor: 'pointer',
                         fontFamily: "'DM Sans', sans-serif",
                       }}
@@ -525,32 +538,32 @@ const Controller = () => {
             <div className="section-label" style={{ marginBottom: 0 }}>Budget Authority — {activePropName}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <button onClick={prevMonth} style={navBtnStyle}>‹</button>
-              <span style={{ fontSize: '12px', color: 'var(--nt4)', minWidth: '70px', textAlign: 'center' }}>{periodLabel}</span>
+              <span style={{ fontSize: '12px', color: 'var(--text-4)', minWidth: '70px', textAlign: 'center' }}>{periodLabel}</span>
               <button onClick={nextMonth} style={navBtnStyle}>›</button>
             </div>
           </div>
 
           {loadingBudgets ? (
-            <div style={{ textAlign: 'center', padding: '32px', color: 'var(--nt4)', fontSize: '13px' }}>Loading…</div>
+            <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-4)', fontSize: '13px' }}>Loading…</div>
           ) : (
             <div className="nura-card">
               <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '10px' }}>
                 {activePropName} — {periodLabel}
               </div>
-              {glCodes.map(({ code, name, monthly_budget }) => {
+              {glCodes.map(({ code, name, monthly_budget }, i) => {
                 const spent     = approvedSpend[code] || 0
                 const remaining = Number(monthly_budget) - spent
                 const isOver    = remaining < 0
                 return (
                   <div
-                    key={code}
+                    key={code || `gl-${i}`}
                     style={{
                       display: 'flex',
                       justifyContent: 'space-between',
                       fontSize: '12px',
-                      color: 'var(--nt3)',
+                      color: 'var(--text-3)',
                       padding: '6px 0',
-                      borderBottom: '1px solid var(--nborder)',
+                      borderBottom: '1px solid var(--border)',
                     }}
                   >
                     <span>{name}</span>
@@ -560,7 +573,7 @@ const Controller = () => {
                   </div>
                 )
               })}
-              <div style={{ borderTop: '1px solid var(--nborder)', marginTop: '10px', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '600' }}>
+              <div style={{ borderTop: '1px solid var(--border)', marginTop: '10px', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '600' }}>
                 <span>Total Spend</span>
                 <span>{fmt(Object.values(approvedSpend).reduce((s, v) => s + v, 0))}</span>
               </div>
@@ -576,27 +589,27 @@ const Controller = () => {
             <div className="section-label" style={{ marginBottom: 0 }}>Month-End Export — {activePropName}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <button onClick={prevMonth} style={navBtnStyle}>‹</button>
-              <span style={{ fontSize: '12px', color: 'var(--nt4)', minWidth: '70px', textAlign: 'center' }}>{periodLabel}</span>
+              <span style={{ fontSize: '12px', color: 'var(--text-4)', minWidth: '70px', textAlign: 'center' }}>{periodLabel}</span>
               <button onClick={nextMonth} style={navBtnStyle}>›</button>
             </div>
           </div>
 
           {loadingExport ? (
-            <div style={{ textAlign: 'center', padding: '32px', color: 'var(--nt4)', fontSize: '13px' }}>Loading…</div>
+            <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-4)', fontSize: '13px' }}>Loading…</div>
           ) : (
             <div className="nura-card">
               {invoiceCount === 0 ? (
-                <div style={{ fontSize: '13px', color: 'var(--nt3)', textAlign: 'center', padding: '16px 0' }}>
+                <div style={{ fontSize: '13px', color: 'var(--text-3)', textAlign: 'center', padding: '16px 0' }}>
                   No approved invoices for {periodLabel}.
                 </div>
               ) : (
                 <>
-                  <div style={{ fontSize: '13px', color: 'var(--nt2)', marginBottom: '14px', lineHeight: '1.6' }}>
+                  <div style={{ fontSize: '13px', color: 'var(--text-2)', marginBottom: '14px', lineHeight: '1.6' }}>
                     {periodLabel} — {invoiceCount} approved {invoiceCount === 1 ? 'invoice' : 'invoices'} totalling {fmtFull(totalSpend)}.
                   </div>
                   {[
-                    ['Invoices coded', String(invoiceCount),  'var(--nt)'],
-                    ['Total spend',    fmtFull(totalSpend),   'var(--nt)'],
+                    ['Invoices coded', String(invoiceCount),  'var(--text)'],
+                    ['Total spend',    fmtFull(totalSpend),   'var(--text)'],
                     ['Audit variance', '$0.00',               'var(--green)'],
                   ].map(([label, value, color]) => (
                     <div
@@ -605,9 +618,9 @@ const Controller = () => {
                         display: 'flex',
                         justifyContent: 'space-between',
                         fontSize: '12px',
-                        color: 'var(--nt3)',
+                        color: 'var(--text-3)',
                         padding: '6px 0',
-                        borderBottom: '1px solid var(--nborder)',
+                        borderBottom: '1px solid var(--border)',
                       }}
                     >
                       <span>{label}</span>
@@ -635,7 +648,7 @@ const Controller = () => {
         return (
         <div
           style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
+            position: 'fixed', inset: 0, background: 'var(--overlay-heavy)',
             zIndex: 200, display: 'flex',
             alignItems: isDesktop ? 'center' : 'flex-end',
             justifyContent: isDesktop ? 'center' : 'stretch',
@@ -644,7 +657,7 @@ const Controller = () => {
         >
           <div
             style={{
-              background: 'var(--nsurf)',
+              background: 'var(--surface)',
               borderRadius: isDesktop ? '20px' : '20px 20px 0 0',
               padding: '24px 20px 36px',
               width: '100%',
@@ -652,7 +665,7 @@ const Controller = () => {
               margin: '0 auto',
             }}
           >
-            <div style={{ width: '36px', height: '4px', background: 'var(--nborder)', borderRadius: '2px', margin: '0 auto 20px' }} />
+            <div style={{ width: '36px', height: '4px', background: 'var(--border)', borderRadius: '2px', margin: '0 auto 20px' }} />
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
               <div className="font-newsreader" style={{ fontSize: '20px', fontWeight: 400 }}>
                 {modalStep === 'gl-codes'
@@ -661,7 +674,7 @@ const Controller = () => {
               </div>
               <button
                 onClick={() => setShowModal(false)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--nt3)', fontSize: '18px', padding: '4px' }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', fontSize: '18px', padding: '4px', minWidth: '36px', minHeight: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
                 ✕
               </button>
@@ -757,7 +770,7 @@ const Controller = () => {
             {/* ── Step 2: GL codes setup (after create only) ── */}
             {modalStep === 'gl-codes' && (
               <div>
-                <div style={{ fontSize: '13px', color: 'var(--nt3)', marginBottom: '16px', lineHeight: '1.6' }}>
+                <div style={{ fontSize: '13px', color: 'var(--text-3)', marginBottom: '16px', lineHeight: '1.6' }}>
                   Enter GL code numbers if you have them and set monthly budgets. Code numbers are optional.
                 </div>
 
@@ -767,10 +780,10 @@ const Controller = () => {
                       key={g.id}
                       style={{
                         padding: '9px 0',
-                        borderBottom: i < glBudgets.length - 1 ? '1px solid var(--nborder)' : 'none',
+                        borderBottom: i < glBudgets.length - 1 ? '1px solid var(--border)' : 'none',
                       }}
                     >
-                      <div style={{ fontSize: '14px', fontWeight: '500', marginBottom: '6px' }}>{g.name}</div>
+                      <div style={{ fontSize: '14px', fontWeight: '500', marginBottom: '8px' }}>{g.name}</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <input
                           type="text"
@@ -781,13 +794,13 @@ const Controller = () => {
                             setGlBudgets(prev => prev.map((x, j) => j === i ? { ...x, code: val } : x))
                           }}
                           style={{
-                            flex: 1, border: '1px solid var(--nborder)', borderRadius: '6px',
+                            flex: 1, border: '1px solid var(--border)', borderRadius: '6px',
                             padding: '5px 8px', fontFamily: "'DM Sans', sans-serif", fontSize: '13px',
-                            background: 'var(--nsurf)', color: 'var(--nt)',
+                            background: 'var(--surface)', color: 'var(--text)',
                           }}
                         />
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <span style={{ fontSize: '13px', color: 'var(--nt3)' }}>$</span>
+                          <span style={{ fontSize: '13px', color: 'var(--text-3)' }}>$</span>
                           <input
                             type="number"
                             min="0"
@@ -798,9 +811,9 @@ const Controller = () => {
                               setGlBudgets(prev => prev.map((x, j) => j === i ? { ...x, monthly_budget: val } : x))
                             }}
                             style={{
-                              width: '90px', border: '1px solid var(--nborder)', borderRadius: '6px',
+                              width: '90px', border: '1px solid var(--border)', borderRadius: '6px',
                               padding: '5px 8px', fontFamily: "'DM Sans', sans-serif", fontSize: '13px',
-                              textAlign: 'right', background: 'var(--nsurf)', color: 'var(--nt)',
+                              textAlign: 'right', background: 'var(--surface)', color: 'var(--text)',
                             }}
                           />
                         </div>
@@ -820,7 +833,7 @@ const Controller = () => {
                   style={{
                     display: 'block', width: '100%', marginTop: '10px',
                     background: 'none', border: 'none', cursor: 'pointer',
-                    color: 'var(--nt3)', fontSize: '13px', textAlign: 'center',
+                    color: 'var(--text-3)', fontSize: '13px', textAlign: 'center',
                     fontFamily: "'DM Sans', sans-serif", padding: '8px',
                   }}
                 >
@@ -840,7 +853,7 @@ const navBtnStyle = {
   background: 'none',
   border: 'none',
   cursor: 'pointer',
-  color: 'var(--nt4)',
+  color: 'var(--text-4)',
   fontSize: '18px',
   padding: '2px 4px',
   lineHeight: 1,

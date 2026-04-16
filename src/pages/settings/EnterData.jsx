@@ -192,9 +192,10 @@ const EnterData = () => {
       monthly_budget: parseFloat(budgetEdits[g.id]) || 0,
     }))
 
+    // Use upsert on `id` (primary key) — safe even when `code` is empty
     const { error } = await supabase
       .from('gl_codes')
-      .upsert(rows, { onConflict: 'property_id,code' })
+      .upsert(rows, { onConflict: 'id' })
 
     setSavingBudgets(false)
     if (error) {
@@ -208,7 +209,7 @@ const EnterData = () => {
   // ── Shared field component ─────────────────────────────────────────────────
   const Field = ({ label, type = 'text', value, onChange, placeholder, required }) => (
     <div style={{ marginBottom: '14px' }}>
-      <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--nt4)', marginBottom: '6px' }}>
+      <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text-4)', marginBottom: '8px' }}>
         {label}
       </label>
       <input
@@ -228,7 +229,7 @@ const EnterData = () => {
       <div className="screen-hdr">
         <button
           onClick={() => navigate(-1)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--nt3)', fontSize: '14px', padding: 0 }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', fontSize: '14px', padding: 0 }}
         >
           ← Back
         </button>
@@ -236,7 +237,7 @@ const EnterData = () => {
         <div style={{ width: '40px' }} />
       </div>
 
-      <div style={{ fontSize: '13px', color: 'var(--nt3)', marginBottom: '18px', lineHeight: '1.6' }}>
+      <div style={{ fontSize: '13px', color: 'var(--text-3)', marginBottom: '18px', lineHeight: '1.6' }}>
         Manually enter weekly sales, labor data, and monthly budgets. In Phase 2, POS and scheduling integrations will replace manual entry.
       </div>
 
@@ -250,9 +251,9 @@ const EnterData = () => {
               flex: 1,
               padding: '8px',
               borderRadius: 'var(--r-sm)',
-              border: '1px solid var(--nborder)',
-              background: tab === t ? 'var(--nt)' : 'var(--nsurf)',
-              color: tab === t ? 'white' : 'var(--nt3)',
+              border: '1px solid var(--border)',
+              background: tab === t ? 'var(--amber)' : 'var(--surface)',
+              color: tab === t ? '#0A0A0A' : 'var(--text-3)',
               fontFamily: "'DM Sans', sans-serif",
               fontSize: '13px',
               fontWeight: '600',
@@ -306,7 +307,7 @@ const EnterData = () => {
       {tab === 'budgets' && (
         <form onSubmit={saveBudgets}>
           {loadingBudgets ? (
-            <div style={{ textAlign: 'center', padding: '32px', color: 'var(--nt4)', fontSize: '13px' }}>Loading…</div>
+            <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-4)', fontSize: '13px' }}>Loading…</div>
           ) : (
             <>
               <div className="nura-card" style={{ marginBottom: '12px' }}>
@@ -318,7 +319,7 @@ const EnterData = () => {
                       alignItems: 'center',
                       justifyContent: 'space-between',
                       padding: '8px 0',
-                      borderBottom: i < glCodes.length - 1 ? '1px solid var(--nborder)' : 'none',
+                      borderBottom: i < glCodes.length - 1 ? '1px solid var(--border)' : 'none',
                     }}
                   >
                     <div>
@@ -326,7 +327,7 @@ const EnterData = () => {
                       <span className="gl-pill">{g.code}</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ fontSize: '13px', color: 'var(--nt3)' }}>$</span>
+                      <span style={{ fontSize: '13px', color: 'var(--text-3)' }}>$</span>
                       <input
                         type="number"
                         min="0"
@@ -335,14 +336,14 @@ const EnterData = () => {
                         onChange={(e) => setBudgetEdits((prev) => ({ ...prev, [g.id]: e.target.value }))}
                         style={{
                           width: '90px',
-                          border: '1px solid var(--nborder)',
+                          border: '1px solid var(--border)',
                           borderRadius: '6px',
                           padding: '5px 8px',
                           fontFamily: "'DM Sans', sans-serif",
                           fontSize: '13px',
                           textAlign: 'right',
-                          background: 'var(--nsurf)',
-                          color: 'var(--nt)',
+                          background: 'var(--surface)',
+                          color: 'var(--text)',
                         }}
                       />
                     </div>
@@ -364,13 +365,13 @@ const EnterData = () => {
       {tab === 'vendors' && (
         <>
           {loadingVendors ? (
-            <div style={{ textAlign: 'center', padding: '32px', color: 'var(--nt4)', fontSize: '13px' }}>Loading…</div>
+            <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-4)', fontSize: '13px' }}>Loading…</div>
           ) : (
             <>
               {/* Existing vendors list */}
               {vendors.length > 0 && (
                 <div className="nura-card" style={{ marginBottom: '16px' }}>
-                  <div style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--nt4)', marginBottom: '10px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text-4)', marginBottom: '10px' }}>
                     Current Vendors
                   </div>
                   {vendors.map((v, i) => (
@@ -381,17 +382,17 @@ const EnterData = () => {
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         padding: '8px 0',
-                        borderBottom: i < vendors.length - 1 ? '1px solid var(--nborder)' : 'none',
+                        borderBottom: i < vendors.length - 1 ? '1px solid var(--border)' : 'none',
                       }}
                     >
                       <div>
                         <div style={{ fontSize: '14px', fontWeight: '500' }}>{v.name}</div>
-                        <div style={{ fontSize: '12px', color: 'var(--nt4)' }}>
+                        <div style={{ fontSize: '12px', color: 'var(--text-4)' }}>
                           {v.default_gl_code && <span className="gl-pill">{v.default_gl_code}</span>}
                           {v.delivery_frequency && <span style={{ marginLeft: v.default_gl_code ? '6px' : 0 }}>{v.delivery_frequency}</span>}
                         </div>
                       </div>
-                      <span style={{ fontSize: '11px', fontWeight: '600', color: v.is_active ? 'var(--green)' : 'var(--nt4)' }}>
+                      <span style={{ fontSize: '11px', fontWeight: '600', color: v.is_active ? 'var(--green)' : 'var(--text-4)' }}>
                         {v.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </div>
@@ -400,7 +401,7 @@ const EnterData = () => {
               )}
 
               {vendors.length === 0 && (
-                <div style={{ textAlign: 'center', padding: '24px', color: 'var(--nt4)', fontSize: '13px', marginBottom: '16px' }}>
+                <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-4)', fontSize: '13px', marginBottom: '16px' }}>
                   No vendors yet. Add your first vendor below.
                 </div>
               )}
@@ -408,7 +409,7 @@ const EnterData = () => {
               {/* Add Vendor form */}
               <form onSubmit={submitVendor}>
                 <div className="nura-card" style={{ marginBottom: '12px' }}>
-                  <div style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--nt4)', marginBottom: '10px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text-4)', marginBottom: '10px' }}>
                     Add Vendor
                   </div>
                   <Field
@@ -419,7 +420,7 @@ const EnterData = () => {
                     required
                   />
                   <div style={{ marginBottom: '14px' }}>
-                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--nt4)', marginBottom: '6px' }}>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text-4)', marginBottom: '8px' }}>
                       Default GL Code
                     </label>
                     <select
@@ -442,7 +443,7 @@ const EnterData = () => {
                     placeholder="e.g. Weekly"
                   />
                   <div style={{ marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <label style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--nt4)' }}>
+                    <label style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text-4)' }}>
                       Active
                     </label>
                     <button
@@ -450,7 +451,7 @@ const EnterData = () => {
                       onClick={() => setVendorForm((f) => ({ ...f, is_active: !f.is_active }))}
                       style={{
                         width: '40px', height: '22px', borderRadius: '11px', border: 'none', cursor: 'pointer',
-                        background: vendorForm.is_active ? 'var(--green, #22c55e)' : 'var(--nborder)',
+                        background: vendorForm.is_active ? 'var(--green)' : 'var(--border)',
                         position: 'relative', transition: 'background 0.2s',
                       }}
                     >
@@ -458,7 +459,7 @@ const EnterData = () => {
                         position: 'absolute', top: '2px',
                         left: vendorForm.is_active ? '20px' : '2px',
                         width: '18px', height: '18px', borderRadius: '50%',
-                        background: 'white', transition: 'left 0.2s',
+                        background: 'var(--text)', transition: 'left 0.2s',
                       }} />
                     </button>
                   </div>

@@ -9,8 +9,8 @@ const lbl = {
   fontWeight: '700',
   textTransform: 'uppercase',
   letterSpacing: '0.8px',
-  color: 'var(--nt4)',
-  marginBottom: '6px',
+  color: 'var(--text-4)',
+  marginBottom: '8px',
 }
 
 const DelegateSetup = () => {
@@ -97,30 +97,44 @@ const DelegateSetup = () => {
   }
 
   return (
-    <div style={{ minHeight: '100dvh', background: 'var(--nbg)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 24px' }}>
+    <div style={{ minHeight: '100dvh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 24px' }}>
       <div style={{ width: '100%', maxWidth: '420px' }}>
         {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
           <div
             className="font-newsreader"
-            style={{ fontSize: '42px', letterSpacing: '6px', textTransform: 'uppercase', color: 'var(--nt)', marginBottom: '8px' }}
+            style={{ fontSize: '42px', letterSpacing: '6px', textTransform: 'uppercase', color: 'var(--amber)', marginBottom: '8px' }}
           >
             NURA
+          </div>
+        </div>
+
+        {/* Progress — step 2 context */}
+        <div style={{ marginBottom: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <div style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-4)' }}>
+              Step 2 of 7
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--text-4)' }}>Delegate Setup</div>
+          </div>
+          <div style={{ background: 'var(--surface-alt)', height: '3px', borderRadius: '2px', overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${(2 / 7) * 100}%`, background: 'var(--amber)', borderRadius: '2px', transition: 'width 0.4s ease' }} />
           </div>
         </div>
 
         <div className="font-newsreader" style={{ fontSize: '28px', marginBottom: '6px' }}>
           Invite your Controller to finish setup
         </div>
-        <div style={{ fontSize: '13px', color: 'var(--nt3)', marginBottom: '24px', lineHeight: '1.6' }}>
+        <div style={{ fontSize: '13px', color: 'var(--text-3)', marginBottom: '24px', lineHeight: '1.6' }}>
           They will receive a task queue to configure your budgets and GL structure. You will be notified when they are done.
         </div>
 
         <form onSubmit={handleSendInvite}>
           <div className="nura-card" style={{ marginBottom: '14px' }}>
             <div>
-              <label style={lbl}>Controller's email</label>
+              <label htmlFor="delegate-email" style={lbl}>Controller's email</label>
               <input
+                id="delegate-email"
                 type="text"
                 inputMode="email"
                 autoComplete="email"
@@ -133,12 +147,12 @@ const DelegateSetup = () => {
               />
             </div>
 
-            <div style={{ marginTop: '12px', padding: '10px 13px', background: 'var(--nsurf-alt)', borderRadius: 'var(--r-sm)' }}>
+            <div style={{ marginTop: '12px', padding: '10px 13px', background: 'var(--surface-alt)', borderRadius: 'var(--r-sm)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span className="bdg bdg-blue">Controller / CFO</span>
-                <span style={{ fontSize: '12px', color: 'var(--nt4)' }}>Role locked</span>
+                <span style={{ fontSize: '12px', color: 'var(--text-4)' }}>Role locked</span>
               </div>
-              <div style={{ fontSize: '12px', color: 'var(--nt3)', marginTop: '6px', lineHeight: '1.5' }}>
+              <div style={{ fontSize: '12px', color: 'var(--text-3)', marginTop: '6px', lineHeight: '1.5' }}>
                 Portfolio view, budget authority, GL setup, month-end export
               </div>
             </div>
@@ -161,7 +175,7 @@ const DelegateSetup = () => {
           onClick={() => navigate('/onboarding/who-sets-up')}
           style={{
             background: 'none', border: 'none', cursor: 'pointer',
-            color: 'var(--nt4)', fontSize: '13px', display: 'block',
+            color: 'var(--text-4)', fontSize: '13px', display: 'block',
             textAlign: 'center', width: '100%', padding: '14px 0',
           }}
         >
