@@ -5,7 +5,6 @@ import { useAuth } from '../context/AuthContext'
 import { fmt, fmtPct } from '../lib/utils'
 import { createPropertyWithDefaults } from '../lib/propertyUtils'
 import { extractSalesReport, extractLaborReport } from '../lib/claudeApi'
-import AddInvoiceModal from '../components/AddInvoiceModal'
 
 // ── Onboarding — Zero to Value in 48 Hours ────────────────────────────────────
 // 7-step onboarding that ends with real data on the dashboard.
@@ -21,8 +20,8 @@ import AddInvoiceModal from '../components/AddInvoiceModal'
 //   7  invoice    — First invoice inline form + processing animation (skippable)
 //   —  done       — Live dashboard snapshot: prime cost, sales, food budget, invoices
 
-const STEPS = ['welcome', 'property', 'gl', 'sales', 'labor', 'invoice', 'done', 'more-properties']
-const TOTAL_STEPS = 6 // welcome → invoice; done and more-properties are completion screens
+const STEPS = ['welcome', 'property', 'gl', 'sales', 'labor', 'done', 'more-properties']
+const TOTAL_STEPS = 5
 
 const STEP_LABEL = {
   welcome:  'Welcome',
@@ -30,7 +29,6 @@ const STEP_LABEL = {
   gl:       'Spending Categories',
   sales:    'Connect Sales',
   labor:    'Connect Labor',
-  invoice:  'First Invoice',
   done:     'Complete',
 }
 
@@ -114,9 +112,6 @@ const Onboarding = () => {
   const [laborLoading,   setLaborLoading]   = useState(false)
   const [laborError,     setLaborError]     = useState(null)
   const [laborAnimStep,  setLaborAnimStep]  = useState(0)
-
-  // ── Step 7: Invoice — AI modal trigger ──────────────────────────────────────
-  const [showInvModal, setShowInvModal] = useState(false)
 
   // ── Done screen data ────────────────────────────────────────────────────────
   const [doneData,    setDoneData]    = useState(null)
@@ -472,7 +467,7 @@ const Onboarding = () => {
               Real-time financial clarity for hospitality.
             </div>
             <div style={{ fontSize: '13px', color: 'var(--text-4)', marginBottom: '40px', lineHeight: '1.7' }}>
-              Set up your restaurant in 6 steps. By the time you finish, your dashboard will show real data — prime cost, budgets, and your first invoice coded.
+              Set up your restaurant in 5 steps. By the time you finish, your dashboard will show real data — prime cost, budgets, and revenue.
             </div>
             <button className="btn-primary" onClick={advance}>Get started →</button>
           </div>
@@ -890,130 +885,67 @@ const Onboarding = () => {
         )}
 
         {/* ══════════════════════════════════════════════════
-            STEP 7 — FIRST INVOICE (AI EXTRACTION)
-        ══════════════════════════════════════════════════ */}
-        {step === 'invoice' && (
-          <div>
-            <div className="font-newsreader" style={{ fontSize: '28px', marginBottom: '6px' }}>First invoice</div>
-            <div style={{ fontSize: '13px', color: 'var(--text-3)', marginBottom: '20px', lineHeight: '1.6' }}>
-              Upload your most recent invoice. Watch NURA code it automatically and update your budget in real time.
-            </div>
-
-            {/* Upload trigger card */}
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={() => setShowInvModal(true)}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowInvModal(true) } }}
-              style={{
-                border: '2px dashed rgba(184,134,11,0.3)',
-                borderRadius: 'var(--r)',
-                padding: '40px 24px',
-                textAlign: 'center',
-                cursor: 'pointer',
-                marginBottom: '16px',
-                transition: 'border-color 0.15s',
-                outline: 'none',
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--amber)' }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(184,134,11,0.3)' }}
-              onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--amber)' }}
-              onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(184,134,11,0.3)' }}
-            >
-              <svg width="32" height="32" viewBox="0 0 32 32" fill="none" style={{ margin: '0 auto 12px', display: 'block' }}>
-                <rect x="6" y="3" width="16" height="22" rx="2" stroke="var(--amber)" strokeWidth="1.5" />
-                <path d="M10 10h8M10 14h6M10 18h4" stroke="var(--amber)" strokeWidth="1.3" strokeLinecap="round" />
-                <circle cx="24" cy="8" r="3" fill="var(--amber)" opacity="0.3" />
-                <path d="M24 5v6M21 8h6" stroke="var(--amber)" strokeWidth="1" strokeLinecap="round" opacity="0.6" />
-              </svg>
-              <div style={{ fontSize: '15px', fontWeight: 500, color: 'var(--text)', marginBottom: '4px' }}>
-                Tap to upload or scan your first invoice
-              </div>
-              <div style={{ fontSize: '13px', color: 'var(--text-4)' }}>
-                PDF, JPG, PNG
-              </div>
-            </div>
-
-            <button onClick={advance} style={skipBtn}>
-              Skip for now
-            </button>
-
-            {showInvModal && (
-              <AddInvoiceModal
-                onClose={() => setShowInvModal(false)}
-                onSuccess={() => { setShowInvModal(false); advance() }}
-              />
-            )}
-          </div>
-        )}
-
-        {/* ══════════════════════════════════════════════════
-            DONE — LIVE DASHBOARD SNAPSHOT
+            DONE — SETUP COMPLETE
         ══════════════════════════════════════════════════ */}
         {step === 'done' && (
           <div style={{ textAlign: 'center', paddingTop: '16px' }}>
-            <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'var(--amber)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+            <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'var(--green)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
             </div>
             <div className="font-newsreader" style={{ fontSize: '30px', marginBottom: '8px' }}>
               {createdProperty?.name || 'Your restaurant'} is live on NURA.
             </div>
             <div style={{ fontSize: '14px', color: 'var(--text-3)', marginBottom: '28px' }}>
-              Here's where you stand today.
+              Your dashboard is ready. Here's a preview of what you'll see.
             </div>
 
             {doneLoading ? (
               <div style={{ padding: '24px', color: 'var(--text-4)', fontSize: '13px' }}>Loading your data…</div>
             ) : (
-              <div className="stat-grid" style={{ marginBottom: '28px', textAlign: 'left' }}>
-                <div className="stat-cell">
-                  <div className="stat-label">Prime Cost</div>
-                  <div
-                    className="stat-val font-newsreader"
-                    style={{ color: doneData?.primeCostPct != null ? 'var(--amber)' : 'var(--text-4)' }}
-                  >
-                    {doneData?.primeCostPct != null ? fmtPct(doneData.primeCostPct) : '—'}
+              <div style={{ marginBottom: '28px', textAlign: 'left' }}>
+                {/* Prime Cost */}
+                <div className="nura-card" style={{ marginBottom: '10px', padding: '14px 16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text-4)', marginBottom: '4px' }}>Prime Cost</div>
+                      <div className="font-newsreader" style={{ fontSize: '24px', color: doneData?.primeCostPct != null ? 'var(--text)' : 'var(--text-4)' }}>
+                        {doneData?.primeCostPct != null ? fmtPct(doneData.primeCostPct) : '—%'}
+                      </div>
+                    </div>
+                    {doneData?.primeCostPct == null && <div style={{ fontSize: '12px', color: 'var(--text-4)' }}>Needs sales + labor</div>}
                   </div>
-                  {doneData?.primeCostPct == null && (
-                    <div className="stat-sub">Add sales &amp; labor</div>
-                  )}
                 </div>
 
-                <div className="stat-cell">
-                  <div className="stat-label">Sales MTD</div>
-                  <div className="stat-val font-newsreader" style={{ color: doneData?.totalSales != null ? 'var(--text)' : 'var(--text-4)' }}>
-                    {doneData?.totalSales != null ? fmt(doneData.totalSales) : '—'}
+                {/* Sales MTD */}
+                <div className="nura-card" style={{ marginBottom: '10px', padding: '14px 16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text-4)', marginBottom: '4px' }}>Sales MTD</div>
+                      <div className="font-newsreader" style={{ fontSize: '24px', color: doneData?.totalSales != null ? 'var(--text)' : 'var(--text-4)' }}>
+                        {doneData?.totalSales != null ? fmt(doneData.totalSales) : '$—'}
+                      </div>
+                    </div>
+                    {doneData?.totalSales == null && <div style={{ fontSize: '12px', color: 'var(--text-4)' }}>Upload a sales report</div>}
                   </div>
-                  {doneData?.totalSales == null && (
-                    <div className="stat-sub">Add sales data</div>
-                  )}
                 </div>
 
-                <div className="stat-cell">
-                  <div className="stat-label">Food Budget Left</div>
-                  <div
-                    className="stat-val font-newsreader"
-                    style={{ color: doneData?.foodRemaining != null ? ((doneData.foodRemaining >= 0) ? 'var(--green)' : 'var(--orange)') : 'var(--text-4)' }}
-                  >
-                    {doneData?.foodRemaining != null ? fmt(doneData.foodRemaining) : '—'}
+                {/* Remaining Budget */}
+                <div className="nura-card" style={{ padding: '14px 16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text-4)', marginBottom: '4px' }}>Remaining Budget</div>
+                      <div className="font-newsreader" style={{ fontSize: '24px', color: doneData?.foodRemaining != null ? 'var(--green)' : 'var(--text-4)' }}>
+                        {doneData?.foodRemaining != null ? fmt(doneData.foodRemaining) : '$—'}
+                      </div>
+                    </div>
+                    {doneData?.foodRemaining == null && <div style={{ fontSize: '12px', color: 'var(--text-4)' }}>Set budgets on dashboard</div>}
                   </div>
-                  {doneData?.foodRemaining == null && (
-                    <div className="stat-sub">Add invoices</div>
-                  )}
-                </div>
-
-                <div className="stat-cell">
-                  <div className="stat-label">Invoices</div>
-                  <div className="stat-val font-newsreader">
-                    {doneData?.invoiceCount ?? '—'}
-                  </div>
-                  <div className="stat-sub">coded &amp; pending</div>
                 </div>
               </div>
             )}
 
             <button className="btn-primary" onClick={advance}>
-              Continue →
+              Go to Dashboard →
             </button>
           </div>
         )}
