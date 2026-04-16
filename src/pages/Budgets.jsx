@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { fmt, getMonthRange, budgetStatus } from '../lib/utils'
@@ -7,6 +8,58 @@ import { fmt, getMonthRange, budgetStatus } from '../lib/utils'
 // Queries gl_codes for budget targets and approved invoices for the current month.
 
 const BudgetCard = ({ name, code, budget, spent, remaining, utilPct }) => {
+  const noBudgetSet = budget === 0 && spent === 0
+  const budgetSetNoSpend = budget > 0 && spent === 0
+
+  // Ghost state — no budget target set at all
+  if (noBudgetSet) {
+    return (
+      <div className="nura-card">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: '15px', fontWeight: '500' }}>{name}</div>
+            {code && <div style={{ fontSize: '11px', color: 'var(--text-3)' }}>GL {code}</div>}
+          </div>
+        </div>
+        <div className="pbar-wrap">
+          <div className="ghost" style={{ width: '100%', height: '100%', borderRadius: 'inherit' }} />
+        </div>
+        <div style={{ fontSize: '13px', color: 'var(--text-4)', marginTop: '3px' }}>
+          Budget target not set{' '}
+          <Link to="/settings/data" style={{ color: 'var(--amber)', fontSize: '12px', textDecoration: 'none', fontWeight: '500' }}>
+            Set budget →
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  // Budget set but zero spend — untouched
+  if (budgetSetNoSpend) {
+    return (
+      <div className="nura-card">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: '15px', fontWeight: '500' }}>{name}</div>
+            {code && <div style={{ fontSize: '11px', color: 'var(--text-3)' }}>GL {code}</div>}
+          </div>
+          <span className="bdg bdg-blue">Untouched</span>
+        </div>
+        <div className="pbar-wrap">
+          {/* Empty track visible, no fill */}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '3px' }}>
+          <span style={{ fontSize: '13px', color: 'var(--text-4)' }}>$0 spent</span>
+          <span style={{ fontSize: '13px', color: 'var(--green)' }}>{fmt(budget)} left</span>
+        </div>
+        <div style={{ fontSize: '11px', color: 'var(--amber)', marginTop: '2px' }}>
+          of {fmt(budget)} budgeted
+        </div>
+      </div>
+    )
+  }
+
+  // Normal state — has real data
   const { label: badgeLbl, cls: badgeCls } = budgetStatus(utilPct, remaining)
   const over = remaining < 0
   const barCls = over ? 'pbar-fill pbar-orange' : 'pbar-fill pbar-green'
@@ -20,7 +73,7 @@ const BudgetCard = ({ name, code, budget, spent, remaining, utilPct }) => {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <div style={{ fontSize: '15px', fontWeight: '500' }}>{name}</div>
-          <div style={{ fontSize: '11px', color: 'var(--nt3)' }}>GL {code}</div>
+          {code && <div style={{ fontSize: '11px', color: 'var(--text-3)' }}>GL {code}</div>}
         </div>
         <span className={`bdg ${badgeCls}`}>{badgeLbl}</span>
       </div>
@@ -30,7 +83,7 @@ const BudgetCard = ({ name, code, budget, spent, remaining, utilPct }) => {
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '3px' }}>
-        <span style={{ fontSize: '13px', color: 'var(--nt3)' }}>{fmt(spent)} spent</span>
+        <span style={{ fontSize: '13px', color: 'var(--text-3)' }}>{fmt(spent)} spent</span>
         <span
           style={{
             fontSize: '13px',
@@ -40,7 +93,7 @@ const BudgetCard = ({ name, code, budget, spent, remaining, utilPct }) => {
           {over ? `-${fmt(Math.abs(remaining))} over` : `${fmt(remaining)} left`}
         </span>
       </div>
-      <div style={{ fontSize: '11px', color: 'var(--nt4)', marginTop: '2px' }}>
+      <div style={{ fontSize: '11px', color: 'var(--text-4)', marginTop: '2px' }}>
         of {fmt(budget)} · {utilPct.toFixed(1)}% used
       </div>
     </div>
@@ -48,7 +101,7 @@ const BudgetCard = ({ name, code, budget, spent, remaining, utilPct }) => {
 }
 
 const Budgets = () => {
-  const { activePropertyId } = useAuth()
+  const { activePropertyId, periodYear: year, periodMonth: month } = useAuth()
   const propertyId = activePropertyId
 
   const [budgets, setBudgets]   = useState([])
@@ -60,8 +113,7 @@ const Budgets = () => {
     setLoading(true)
     setError(null)
 
-    const now = new Date()
-    const { start, end } = getMonthRange(now.getFullYear(), now.getMonth() + 1)
+    const { start, end } = getMonthRange(year, month)
 
     const [glRes, invRes] = await Promise.all([
       supabase
@@ -108,7 +160,7 @@ const Budgets = () => {
 
     setBudgets(computed)
     setLoading(false)
-  }, [propertyId])
+  }, [propertyId, year, month])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -147,7 +199,7 @@ const Budgets = () => {
       )}
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--nt4)', fontSize: '13px' }}>Loading…</div>
+        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-4)', fontSize: '13px' }}>Loading…</div>
       ) : (
         <>
           {/* ── Summary note ── */}
@@ -157,11 +209,11 @@ const Budgets = () => {
 
           {/* ── Budget cards ── */}
           {budgets.length === 0 ? (
-            <div className="nura-card" style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--nt3)', fontSize: '14px' }}>
+            <div className="nura-card" style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--text-3)', fontSize: '14px' }}>
               No budget categories configured yet.
             </div>
           ) : (
-            budgets.map((b) => <BudgetCard key={b.code} {...b} />)
+            budgets.map((b, i) => <BudgetCard key={b.code || `gl-${i}`} {...b} />)
           )}
         </>
       )}

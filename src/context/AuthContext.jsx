@@ -12,6 +12,11 @@ export const AuthProvider = ({ children }) => {
   const [activePropertyId, setActivePropertyId] = useState(null)
   const [activeProperty, setActivePropertyState] = useState(null)
 
+  // ── Shared active period (all pages read from this) ────────────────────────
+  const [periodYear, setPeriodYear]   = useState(new Date().getFullYear())
+  const [periodMonth, setPeriodMonth] = useState(new Date().getMonth() + 1)
+  const [periodAutoDetected, setPeriodAutoDetected] = useState(false)
+
   // ── Multi-property lists ───────────────────────────────────────────────────
   const [ownedProperties, setOwnedProperties]       = useState([])
   const [assignedProperties, setAssignedProperties] = useState([])
@@ -160,6 +165,9 @@ export const AuthProvider = ({ children }) => {
       setActiveProperty,
       ownedProperties,
       assignedProperties,
+      periodYear, setPeriodYear,
+      periodMonth, setPeriodMonth,
+      periodAutoDetected, setPeriodAutoDetected,
     }}>
       {children}
     </AuthContext.Provider>

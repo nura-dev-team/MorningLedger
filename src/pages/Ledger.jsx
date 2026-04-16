@@ -7,7 +7,7 @@ import { fmt, fmtFull, fmtDateShort, getMonthRange, fmtPeriodLabel } from '../li
 // ── Ledger screen ─────────────────────────────────────────────────────────────
 
 const Ledger = () => {
-  const { activePropertyId } = useAuth()
+  const { activePropertyId, periodYear, periodMonth } = useAuth()
   const propertyId = activePropertyId
 
   const [tab, setTab] = useState('invoices')
@@ -27,15 +27,14 @@ const Ledger = () => {
   const [addVendorSuccess, setAddVendorSuccess] = useState(false)
   const [showAddVendor, setShowAddVendor] = useState(false)
 
-  const periodLabel = fmtPeriodLabel(new Date().getFullYear(), new Date().getMonth() + 1)
+  const periodLabel = fmtPeriodLabel(periodYear, periodMonth)
 
   const fetchData = useCallback(async () => {
     if (!propertyId) return
     setLoading(true)
     setError(null)
 
-    const now = new Date()
-    const { start, end } = getMonthRange(now.getFullYear(), now.getMonth() + 1)
+    const { start, end } = getMonthRange(periodYear, periodMonth)
 
     const [invRes, vendorRes, allInvRes] = await Promise.all([
       supabase
@@ -80,7 +79,7 @@ const Ledger = () => {
     setVendorInvoiceCounts(counts)
     setVendorLastDates(lastDates)
     setLoading(false)
-  }, [propertyId])
+  }, [propertyId, periodYear, periodMonth])
 
   useEffect(() => { fetchData() }, [fetchData])
 

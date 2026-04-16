@@ -14,10 +14,7 @@ const PrimeCost = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  // Period
-  const [year, setYear] = useState(new Date().getFullYear())
-  const [month, setMonth] = useState(new Date().getMonth() + 1)
-  const [autoMonthDone, setAutoMonthDone] = useState(false)
+  const { periodYear: year, periodMonth: month } = useAuth()
 
   // Core data
   const [totalSales, setTotalSales] = useState(0)
@@ -37,27 +34,6 @@ const PrimeCost = () => {
   const [aiAnalysis, setAiAnalysis] = useState(null)
   const [aiLoading, setAiLoading] = useState(false)
   const lastAiKey = useRef(null)
-
-  // Auto-detect latest month with data
-  useEffect(() => {
-    if (!propertyId || autoMonthDone) return
-    setAutoMonthDone(true)
-    const now = new Date()
-    const curStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
-    const curEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()}`
-    supabase.from('sales_entries').select('id', { count: 'exact', head: true }).eq('property_id', propertyId).gte('date', curStart).lte('date', curEnd)
-      .then(({ count }) => {
-        if (count > 0) return
-        supabase.from('sales_entries').select('date').eq('property_id', propertyId).order('date', { ascending: false }).limit(1)
-          .then(({ data: rows }) => {
-            if (rows?.[0]?.date) {
-              const d = new Date(rows[0].date + 'T00:00:00')
-              setYear(d.getFullYear())
-              setMonth(d.getMonth() + 1)
-            }
-          })
-      })
-  }, [propertyId, autoMonthDone])
 
   const fetchData = useCallback(async () => {
     if (!propertyId) return

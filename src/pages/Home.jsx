@@ -50,11 +50,9 @@ const Home = () => {
   const setupPending = searchParams.get('setup') === 'pending'
   const propertyId = activePropertyId
 
-  const [year, setYear] = useState(new Date().getFullYear())
-  const [month, setMonth] = useState(new Date().getMonth() + 1)
+  const { periodYear: year, setPeriodYear: setYear, periodMonth: month, setPeriodMonth: setMonth, periodAutoDetected, setPeriodAutoDetected } = useAuth()
   const [periodReady, setPeriodReady] = useState(false)
   const [showAddInvoice, setShowAddInvoice] = useState(false)
-  const [autoMonthDone, setAutoMonthDone] = useState(false)
 
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -67,10 +65,10 @@ const Home = () => {
 
   useEffect(() => { if (propertyId) setPeriodReady(true) }, [propertyId])
 
-  // Auto-detect: if current month has no sales data, jump to the latest month that does
+  // Auto-detect: if current month has no sales data, jump to the latest month that does (once)
   useEffect(() => {
-    if (!propertyId || autoMonthDone) return
-    setAutoMonthDone(true)
+    if (!propertyId || periodAutoDetected) return
+    setPeriodAutoDetected(true)
     const now = new Date()
     const curStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
     const curEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()}`
@@ -86,7 +84,7 @@ const Home = () => {
             }
           })
       })
-  }, [propertyId, autoMonthDone])
+  }, [propertyId, periodAutoDetected, setPeriodAutoDetected, setYear, setMonth])
 
   // ── Fetch ─────────────────────────────────────────────────────────────────
 

@@ -39,16 +39,14 @@ const Controller = () => {
     ownedProperties,
     assignedProperties,
     refreshProfile,
+    periodYear: year, setPeriodYear: setYear,
+    periodMonth: month, setPeriodMonth: setMonth,
   } = useAuth()
 
   const isOwner = profile?.role === 'owner'
   const properties = isOwner ? ownedProperties : assignedProperties
 
   const [tab, setTab] = useState('overview')
-
-  // Period — use fresh Date() in callbacks, not a stale closure
-  const [year,  setYear]  = useState(() => new Date().getFullYear())
-  const [month, setMonth] = useState(() => new Date().getMonth() + 1)
 
   // Budgets tab data
   const [glCodes,       setGlCodes]       = useState([])
