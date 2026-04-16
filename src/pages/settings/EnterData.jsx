@@ -214,10 +214,16 @@ const EnterData = () => {
   // ── Budgets state ──────────────────────────────────────────────────────────
   const [glCodes,       setGlCodes]       = useState([])
   const [budgetEdits,   setBudgetEdits]   = useState({}) // { id: monthly_budget }
+  const [glCodeEdits,   setGlCodeEdits]   = useState({}) // { id: code }
   const [loadingBudgets, setLoadingBudgets] = useState(false)
   const [savingBudgets,  setSavingBudgets]  = useState(false)
   const [budgetsSuccess, setBudgetsSuccess] = useState(false)
   const [budgetsError,   setBudgetsError]   = useState(null)
+  const [showAddBudgetCat, setShowAddBudgetCat] = useState(false)
+  const [newBudgetCatName, setNewBudgetCatName] = useState('')
+  const [newBudgetCatCode, setNewBudgetCatCode] = useState('')
+  const [newBudgetCatAmt,  setNewBudgetCatAmt]  = useState('')
+  const [addingBudgetCat,  setAddingBudgetCat]  = useState(false)
 
   // ── Vendors state ─────────────────────────────────────────────────────────
   const [vendors,        setVendors]        = useState([])
@@ -275,17 +281,21 @@ const EnterData = () => {
     setLoadingBudgets(true)
     supabase
       .from('gl_codes')
-      .select('id, code, name, monthly_budget, sort_order')
+      .select('id, code, name, category, monthly_budget, sort_order')
       .eq('property_id', propertyId)
       .eq('is_active', true)
       .order('sort_order')
       .then(({ data }) => {
         const codes = data || []
         setGlCodes(codes)
-        // Pre-fill edit values from current DB values
         const edits = {}
-        for (const g of codes) edits[g.id] = String(g.monthly_budget)
+        const codeEdits = {}
+        for (const g of codes) {
+          edits[g.id] = String(g.monthly_budget)
+          codeEdits[g.id] = g.code || ''
+        }
         setBudgetEdits(edits)
+        setGlCodeEdits(codeEdits)
         setLoadingBudgets(false)
       })
   }, [tab, propertyId])
@@ -295,16 +305,15 @@ const EnterData = () => {
     setSavingBudgets(true)
     setBudgetsError(null)
 
-    // Build upsert rows with updated monthly_budget values
     const rows = glCodes.map((g) => ({
       id:             g.id,
       property_id:    propertyId,
-      code:           g.code,
+      code:           (glCodeEdits[g.id] ?? g.code) || '',
       name:           g.name,
+      category:       g.category,
       monthly_budget: parseFloat(budgetEdits[g.id]) || 0,
     }))
 
-    // Use upsert on `id` (primary key) — safe even when `code` is empty
     const { error } = await supabase
       .from('gl_codes')
       .upsert(rows, { onConflict: 'id' })
@@ -316,6 +325,43 @@ const EnterData = () => {
       setBudgetsSuccess(true)
       setTimeout(() => setBudgetsSuccess(false), 3000)
     }
+  }
+
+  const handleAddBudgetCategory = async () => {
+    if (!newBudgetCatName.trim() || !propertyId) return
+    setAddingBudgetCat(true)
+    setBudgetsError(null)
+
+    const maxSort = glCodes.length > 0 ? Math.max(...glCodes.map(g => g.sort_order || 0)) : 0
+    const code = newBudgetCatCode.trim() || newBudgetCatName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
+
+    const { error } = await supabase.from('gl_codes').insert({
+      property_id:    propertyId,
+      code,
+      name:           newBudgetCatName.trim(),
+      category:       newBudgetCatName.trim().toLowerCase(),
+      monthly_budget: parseFloat(newBudgetCatAmt) || 0,
+      sort_order:     maxSort + 1,
+      is_active:      true,
+    })
+
+    setAddingBudgetCat(false)
+    if (error) { setBudgetsError(error.message); return }
+
+    setNewBudgetCatName('')
+    setNewBudgetCatCode('')
+    setNewBudgetCatAmt('')
+    setShowAddBudgetCat(false)
+    // Reload
+    supabase.from('gl_codes').select('id, code, name, category, monthly_budget, sort_order').eq('property_id', propertyId).eq('is_active', true).order('sort_order')
+      .then(({ data }) => {
+        const codes = data || []
+        setGlCodes(codes)
+        const edits = {}, codeEdits = {}
+        for (const g of codes) { edits[g.id] = String(g.monthly_budget); codeEdits[g.id] = g.code || '' }
+        setBudgetEdits(edits)
+        setGlCodeEdits(codeEdits)
+      })
   }
 
   // ── Shared field component ─────────────────────────────────────────────────
@@ -551,63 +597,110 @@ const EnterData = () => {
         </div>
       )}
 
-      {/* ── Budgets form ── */}
+      {/* ── Budgets tab ── */}
       {tab === 'budgets' && (
-        <form onSubmit={saveBudgets}>
+        <div>
           {loadingBudgets ? (
             <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-4)', fontSize: '13px' }}>Loading…</div>
           ) : (
             <>
-              <div className="nura-card" style={{ marginBottom: '12px' }}>
-                {glCodes.map((g, i) => (
-                  <div
-                    key={g.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '8px 0',
-                      borderBottom: i < glCodes.length - 1 ? '1px solid var(--border)' : 'none',
-                    }}
-                  >
-                    <div>
-                      <div style={{ fontSize: '14px', fontWeight: '500' }}>{g.name}</div>
-                      <span className="gl-pill">{g.code}</span>
+              <form onSubmit={saveBudgets}>
+                <div className="nura-card" style={{ marginBottom: '12px' }}>
+                  {glCodes.map((g, i) => (
+                    <div
+                      key={g.id}
+                      style={{
+                        padding: '10px 0',
+                        borderBottom: i < glCodes.length - 1 ? '1px solid var(--border)' : 'none',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                        <div style={{ fontSize: '14px', fontWeight: '500' }}>{g.name}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span style={{ fontSize: '13px', color: 'var(--text-3)' }}>$</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={budgetEdits[g.id] ?? ''}
+                            onChange={(e) => setBudgetEdits((prev) => ({ ...prev, [g.id]: e.target.value }))}
+                            style={{
+                              width: '100px', border: '1px solid var(--border)', borderRadius: '6px',
+                              padding: '6px 8px', fontFamily: "'DM Sans', sans-serif", fontSize: '13px',
+                              textAlign: 'right', background: 'var(--surface)', color: 'var(--text)',
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-4)', textTransform: 'uppercase' }}>GL</span>
+                        <input
+                          type="text"
+                          value={glCodeEdits[g.id] ?? ''}
+                          onChange={(e) => setGlCodeEdits((prev) => ({ ...prev, [g.id]: e.target.value }))}
+                          placeholder="e.g. 5200"
+                          style={{
+                            width: '80px', border: '1px solid var(--border)', borderRadius: '4px',
+                            padding: '3px 6px', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px',
+                            background: 'var(--surface)', color: 'var(--text-2)',
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ fontSize: '13px', color: 'var(--text-3)' }}>$</span>
-                      <input
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={budgetEdits[g.id] ?? ''}
-                        onChange={(e) => setBudgetEdits((prev) => ({ ...prev, [g.id]: e.target.value }))}
-                        style={{
-                          width: '90px',
-                          border: '1px solid var(--border)',
-                          borderRadius: '6px',
-                          padding: '5px 8px',
-                          fontFamily: "'DM Sans', sans-serif",
-                          fontSize: '13px',
-                          textAlign: 'right',
-                          background: 'var(--surface)',
-                          color: 'var(--text)',
-                        }}
-                      />
-                    </div>
+                  ))}
+                </div>
+
+                {budgetsError   && <div style={{ fontSize: '13px', color: 'var(--red)',   marginBottom: '10px' }}>{budgetsError}</div>}
+                {budgetsSuccess && <div className="note-green" style={{ marginBottom: '10px' }}>✓ Budgets saved.</div>}
+
+                <button type="submit" className="btn-primary" disabled={savingBudgets} style={{ marginBottom: '12px' }}>
+                  {savingBudgets ? 'Saving…' : 'Save Budgets'}
+                </button>
+              </form>
+
+              {/* Add category */}
+              {!showAddBudgetCat ? (
+                <button
+                  onClick={() => setShowAddBudgetCat(true)}
+                  style={{
+                    display: 'block', width: '100%',
+                    background: 'var(--surface)', border: '1px solid var(--border)',
+                    borderRadius: 'var(--r-sm)', padding: '14px',
+                    cursor: 'pointer', fontSize: '13px', fontWeight: 600,
+                    color: 'var(--text)', fontFamily: "'DM Sans', sans-serif", textAlign: 'center',
+                  }}
+                >
+                  + Add Category
+                </button>
+              ) : (
+                <div className="nura-card">
+                  <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text-4)', marginBottom: '10px' }}>New Category</div>
+                  <div style={{ marginBottom: '12px' }}>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text-4)', marginBottom: '8px' }}>Name</label>
+                    <input type="text" className="nura-input" placeholder="e.g. Paper Goods" value={newBudgetCatName} onChange={e => setNewBudgetCatName(e.target.value)} autoFocus />
                   </div>
-                ))}
-              </div>
-
-              {budgetsError   && <div style={{ fontSize: '13px', color: 'var(--red)',   marginBottom: '10px' }}>{budgetsError}</div>}
-              {budgetsSuccess && <div className="note-green" style={{ marginBottom: '10px' }}>✓ Budgets saved.</div>}
-
-              <button type="submit" className="btn-primary" disabled={savingBudgets}>
-                {savingBudgets ? 'Saving…' : 'Save Budgets'}
-              </button>
+                  <div style={{ marginBottom: '12px' }}>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text-4)', marginBottom: '8px' }}>GL Code (optional)</label>
+                    <input type="text" className="nura-input" placeholder="e.g. 5400" value={newBudgetCatCode} onChange={e => setNewBudgetCatCode(e.target.value)} />
+                  </div>
+                  <div style={{ marginBottom: '12px' }}>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text-4)', marginBottom: '8px' }}>Monthly Budget ($)</label>
+                    <input type="number" className="nura-input" placeholder="Optional" min="0" value={newBudgetCatAmt} onChange={e => setNewBudgetCatAmt(e.target.value)} />
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button type="button" className="btn-primary" style={{ flex: 1 }} onClick={handleAddBudgetCategory} disabled={addingBudgetCat || !newBudgetCatName.trim()}>
+                      {addingBudgetCat ? 'Adding…' : 'Add Category'}
+                    </button>
+                    <button type="button" onClick={() => { setShowAddBudgetCat(false); setNewBudgetCatName(''); setNewBudgetCatCode(''); setNewBudgetCatAmt('') }}
+                      style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', padding: '10px 16px', cursor: 'pointer', fontSize: '13px', color: 'var(--text-3)', fontFamily: "'DM Sans', sans-serif" }}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </>
           )}
-        </form>
+        </div>
       )}
       {/* ── Vendors tab ── */}
       {tab === 'vendors' && (
