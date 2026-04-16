@@ -441,7 +441,13 @@ const Ledger = () => {
                       <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text-4)', marginBottom: '4px' }}>
                         Delivery frequency
                       </label>
-                      <input type="text" className="nura-input" placeholder="e.g. Weekly" value={addVendorForm.delivery_frequency} onChange={e => setAddVendorForm(f => ({ ...f, delivery_frequency: e.target.value }))} />
+                      <select className="nura-input" value={addVendorForm.delivery_frequency} onChange={e => setAddVendorForm(f => ({ ...f, delivery_frequency: e.target.value }))}>
+                        <option value="">— Select —</option>
+                        <option value="Daily">Daily</option>
+                        <option value="Weekly">Weekly</option>
+                        <option value="Bi-weekly">Bi-weekly</option>
+                        <option value="Monthly">Monthly</option>
+                      </select>
                     </div>
 
                     {addVendorError && <div style={{ fontSize: '13px', color: 'var(--red)', marginBottom: '10px' }}>{addVendorError}</div>}
