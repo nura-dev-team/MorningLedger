@@ -631,7 +631,7 @@ const Onboarding = () => {
                 {/* Card 1 — Toast POS */}
                 <div className="nura-card" style={{ marginBottom: '12px', padding: '18px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                    <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="#FF6600"/><text x="14" y="19" textAnchor="middle" fill="white" fontFamily="sans-serif" fontWeight="800" fontSize="14">T</text></svg>
+                    <img src="/logos/TOST_BIG-732cf225.png" alt="Toast" style={{ width: '28px', height: '28px', borderRadius: '6px', objectFit: 'contain' }} />
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>Connect Toast</div>
                     </div>
@@ -780,7 +780,7 @@ const Onboarding = () => {
                 {/* Card 1 — 7shifts */}
                 <div className="nura-card" style={{ marginBottom: '12px', padding: '18px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                    <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="#1A1A1A"/><text x="14" y="19.5" textAnchor="middle" fill="#FF6633" fontFamily="sans-serif" fontWeight="800" fontSize="13">7s</text></svg>
+                    <img src="/logos/7shifts-logo.png" alt="7shifts" style={{ width: '28px', height: '28px', borderRadius: '6px', objectFit: 'contain' }} />
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>Connect 7shifts</div>
                     </div>
