@@ -107,19 +107,16 @@ const Onboarding = () => {
   const [glLoading, setGlLoading] = useState(false)
   const [glError,   setGlError]   = useState(null)
 
-  // ── Step 4: Sales — connect / upload / manual ────────────────────────────────
-  // Modes: 'choose' | 'processing' | 'review' | 'manual'
+  // ── Step 4: Sales — connect / upload ─────────────────────────────────────────
   const [salesMode,      setSalesMode]      = useState('choose')
   const [salesExtracted, setSalesExtracted] = useState([])
-  const [salesForm,      setSalesForm]      = useState({ period_start: '', period_end: '', food_sales: '', beverage_sales: '', total_sales: '' })
   const [salesLoading,   setSalesLoading]   = useState(false)
   const [salesError,     setSalesError]     = useState(null)
   const [salesAnimStep,  setSalesAnimStep]  = useState(0)
 
-  // ── Step 5: Labor — connect / upload / manual ──────────────────────────────
+  // ── Step 5: Labor — connect / upload ───────────────────────────────────────
   const [laborMode,      setLaborMode]      = useState('choose')
   const [laborExtracted, setLaborExtracted] = useState([])
-  const [laborForm,      setLaborForm]      = useState({ period_start: '', period_end: '', total_labor: '' })
   const [laborLoading,   setLaborLoading]   = useState(false)
   const [laborError,     setLaborError]     = useState(null)
   const [laborAnimStep,  setLaborAnimStep]  = useState(0)
@@ -325,29 +322,6 @@ const Onboarding = () => {
     advance()
   }
 
-  // ── Sales: save manual entry ────────────────────────────────────────────────
-  const handleSalesManualSave = async () => {
-    if (!salesForm.period_end || !salesForm.total_sales) {
-      setSalesError('Period end date and total sales are required.')
-      return
-    }
-    setSalesLoading(true)
-    setSalesError(null)
-
-    const { error } = await supabase.from('sales_entries').upsert({
-      property_id:    createdProperty.id,
-      date:           salesForm.period_end,
-      food_sales:     parseFloat(salesForm.food_sales) || null,
-      beverage_sales: parseFloat(salesForm.beverage_sales) || null,
-      total_sales:    parseFloat(salesForm.total_sales) || 0,
-      entered_by:     profile.id,
-    }, { onConflict: 'property_id,date' })
-
-    setSalesLoading(false)
-    if (error) { setSalesError(error.message); return }
-    advance()
-  }
-
   // ── Labor: upload handler ───────────────────────────────────────────────────
   const handleLaborUpload = async (e) => {
     const file = e.target.files?.[0]
@@ -391,27 +365,6 @@ const Onboarding = () => {
     advance()
   }
 
-  // ── Labor: save manual entry ────────────────────────────────────────────────
-  const handleLaborManualSave = async () => {
-    if (!laborForm.period_start || !laborForm.period_end || !laborForm.total_labor) {
-      setLaborError('All fields are required.')
-      return
-    }
-    setLaborLoading(true)
-    setLaborError(null)
-
-    const { error } = await supabase.from('labor_entries').insert({
-      property_id:  createdProperty.id,
-      period_start: laborForm.period_start,
-      period_end:   laborForm.period_end,
-      total_labor:  parseFloat(laborForm.total_labor),
-      entered_by:   profile.id,
-    })
-
-    setLaborLoading(false)
-    if (error) { setLaborError(error.message); return }
-    advance()
-  }
 
   const handleOpenNura = async () => {
     // Mark onboarding as complete so ProtectedRoute allows dashboard access
@@ -634,7 +587,7 @@ const Onboarding = () => {
           <div>
             <div className="font-newsreader" style={{ fontSize: '28px', marginBottom: '6px' }}>Connect sales data</div>
             <div style={{ fontSize: '13px', color: 'var(--text-3)', marginBottom: '20px', lineHeight: '1.6' }}>
-              One month of sales history lights up your dashboard. Connect your POS, upload a report, or enter it yourself.
+              One month of sales history lights up your dashboard. Connect your POS or upload a report.
             </div>
 
             {/* ── MODE: CHOOSE ─── three cards ────────────────────────── */}
@@ -679,10 +632,9 @@ const Onboarding = () => {
 
                 {salesError && <div style={{ fontSize: '13px', color: 'var(--red)', marginBottom: '10px' }}>{salesError}</div>}
 
-                {/* Card 3 — Enter manually (text link) */}
-                <button onClick={() => setSalesMode('manual')} style={{ ...skipBtn, marginBottom: '6px' }}>
-                  I'll enter it myself
-                </button>
+                <div style={{ fontSize: '12px', color: 'var(--text-4)', textAlign: 'center', lineHeight: 1.5, marginBottom: '12px' }}>
+                  You can also enter sales data manually anytime from Settings → Enter Data.
+                </div>
                 <button onClick={() => advance()} style={skipBtn}>
                   Skip for now
                 </button>
@@ -758,55 +710,6 @@ const Onboarding = () => {
               </>
             )}
 
-            {/* ── MODE: MANUAL ────────────────────────────────────────── */}
-            {salesMode === 'manual' && (
-              <>
-                <div className="nura-card" style={{ marginBottom: '12px' }}>
-                  <div style={fieldWrap}>
-                    <label htmlFor="sales-start" style={lbl}>Period start</label>
-                    <input id="sales-start" type="date" className="nura-input"
-                      value={salesForm.period_start}
-                      onChange={e => setSalesForm(f => ({ ...f, period_start: e.target.value }))} />
-                  </div>
-                  <div style={fieldWrap}>
-                    <label htmlFor="sales-end" style={lbl}>Period end</label>
-                    <input id="sales-end" type="date" className="nura-input"
-                      value={salesForm.period_end}
-                      onChange={e => setSalesForm(f => ({ ...f, period_end: e.target.value }))} />
-                  </div>
-                  <div style={fieldWrap}>
-                    <label htmlFor="sales-food" style={lbl}>Food sales ($)</label>
-                    <input id="sales-food" type="number" className="nura-input" placeholder="Optional"
-                      value={salesForm.food_sales}
-                      onChange={e => setSalesForm(f => ({ ...f, food_sales: e.target.value }))} />
-                  </div>
-                  <div style={fieldWrap}>
-                    <label htmlFor="sales-bev" style={lbl}>Beverage sales ($)</label>
-                    <input id="sales-bev" type="number" className="nura-input" placeholder="Optional"
-                      value={salesForm.beverage_sales}
-                      onChange={e => setSalesForm(f => ({ ...f, beverage_sales: e.target.value }))} />
-                  </div>
-                  <div>
-                    <label htmlFor="sales-total" style={lbl}>Total sales ($)</label>
-                    <input id="sales-total" type="number" className="nura-input" placeholder="Required"
-                      value={salesForm.total_sales}
-                      onChange={e => setSalesForm(f => ({ ...f, total_sales: e.target.value }))} />
-                  </div>
-                </div>
-
-                {salesError && <div style={{ fontSize: '13px', color: 'var(--red)', marginBottom: '10px' }}>{salesError}</div>}
-
-                <button className="btn-primary" onClick={handleSalesManualSave} disabled={salesLoading} style={{ marginBottom: '8px' }}>
-                  {salesLoading ? 'Saving…' : 'Save & Continue →'}
-                </button>
-                <button onClick={() => setSalesMode('choose')} style={{ ...skipBtn, marginBottom: '6px' }}>
-                  Back
-                </button>
-                <button onClick={() => advance()} style={skipBtn}>
-                  Skip for now
-                </button>
-              </>
-            )}
           </div>
         )}
 
@@ -817,7 +720,7 @@ const Onboarding = () => {
           <div>
             <div className="font-newsreader" style={{ fontSize: '28px', marginBottom: '6px' }}>Connect labor data</div>
             <div style={{ fontSize: '13px', color: 'var(--text-3)', marginBottom: '20px', lineHeight: '1.6' }}>
-              Labor is the other half of prime cost. Connect your scheduling tool, upload a report, or enter a total.
+              Labor is the other half of prime cost. Connect your scheduling tool or upload a report.
             </div>
 
             {/* ── MODE: CHOOSE ─── three cards ────────────────────────── */}
@@ -862,10 +765,9 @@ const Onboarding = () => {
 
                 {laborError && <div style={{ fontSize: '13px', color: 'var(--red)', marginBottom: '10px' }}>{laborError}</div>}
 
-                {/* Card 3 — Enter manually (text link) */}
-                <button onClick={() => setLaborMode('manual')} style={{ ...skipBtn, marginBottom: '6px' }}>
-                  I'll enter it myself
-                </button>
+                <div style={{ fontSize: '12px', color: 'var(--text-4)', textAlign: 'center', lineHeight: 1.5, marginBottom: '12px' }}>
+                  You can also enter labor data manually anytime from Settings → Enter Data.
+                </div>
                 <button onClick={() => advance()} style={skipBtn}>
                   Skip for now
                 </button>
@@ -933,37 +835,6 @@ const Onboarding = () => {
               </>
             )}
 
-            {/* ── MODE: MANUAL ────────────────────────────────────────── */}
-            {laborMode === 'manual' && (
-              <>
-                <div className="nura-card" style={{ marginBottom: '12px' }}>
-                  <div style={fieldWrap}>
-                    <label htmlFor="labor-start" style={lbl}>Period start</label>
-                    <input id="labor-start" type="date" className="nura-input" value={laborForm.period_start} onChange={e => setLaborForm(f => ({ ...f, period_start: e.target.value }))} />
-                  </div>
-                  <div style={fieldWrap}>
-                    <label htmlFor="labor-end" style={lbl}>Period end</label>
-                    <input id="labor-end" type="date" className="nura-input" value={laborForm.period_end} onChange={e => setLaborForm(f => ({ ...f, period_end: e.target.value }))} />
-                  </div>
-                  <div>
-                    <label htmlFor="labor-total" style={lbl}>Total labor cost ($)</label>
-                    <input id="labor-total" type="number" className="nura-input" placeholder="e.g. 19053.00" value={laborForm.total_labor} onChange={e => setLaborForm(f => ({ ...f, total_labor: e.target.value }))} />
-                  </div>
-                </div>
-
-                {laborError && <div style={{ fontSize: '13px', color: 'var(--red)', marginBottom: '10px' }}>{laborError}</div>}
-
-                <button className="btn-primary" onClick={handleLaborManualSave} disabled={laborLoading} style={{ marginBottom: '8px' }}>
-                  {laborLoading ? 'Saving…' : 'Save & Continue →'}
-                </button>
-                <button onClick={() => setLaborMode('choose')} style={{ ...skipBtn, marginBottom: '6px' }}>
-                  Back
-                </button>
-                <button onClick={() => advance()} style={skipBtn}>
-                  Skip for now
-                </button>
-              </>
-            )}
           </div>
         )}
 
