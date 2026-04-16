@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useSearchParams, useLocation } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { generateDashboardNarrative } from '../lib/claudeApi'
@@ -47,7 +47,6 @@ function vendorAvatar(name) {
 const Home = () => {
   const { profile, activePropertyId, activeProperty } = useAuth()
   const [searchParams] = useSearchParams()
-  const location = useLocation()
   const setupPending = searchParams.get('setup') === 'pending'
   const propertyId = activePropertyId
 
@@ -150,9 +149,18 @@ const Home = () => {
 
   useEffect(() => { fetchDashboard() }, [fetchDashboard])
 
-  // Re-fetch when navigating back to Home (e.g. after editing budgets in Settings)
-  const locationKey = location.key
-  useEffect(() => { if (data) fetchDashboard() }, [locationKey])
+  // Real-time: re-fetch when any data table changes for this property
+  useEffect(() => {
+    if (!propertyId) return
+    const tables = ['sales_entries', 'labor_entries', 'invoices', 'gl_codes']
+    const channels = tables.map(table =>
+      supabase
+        .channel(`home-${table}-${propertyId}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table, filter: `property_id=eq.${propertyId}` }, () => fetchDashboard())
+        .subscribe()
+    )
+    return () => channels.forEach(ch => supabase.removeChannel(ch))
+  }, [propertyId, fetchDashboard])
 
   // ── AI narrative ──────────────────────────────────────────────────────────
 

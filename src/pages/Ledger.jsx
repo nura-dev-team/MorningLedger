@@ -83,6 +83,17 @@ const Ledger = () => {
 
   useEffect(() => { fetchData() }, [fetchData])
 
+  useEffect(() => {
+    if (!propertyId) return
+    const tables = ['invoices', 'vendors']
+    const channels = tables.map(table =>
+      supabase.channel(`ledger-${table}-${propertyId}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table, filter: `property_id=eq.${propertyId}` }, () => fetchData())
+        .subscribe()
+    )
+    return () => channels.forEach(ch => supabase.removeChannel(ch))
+  }, [propertyId, fetchData])
+
   // GL codes for add vendor form
   useEffect(() => {
     if (tab !== 'vendors' || !propertyId) return

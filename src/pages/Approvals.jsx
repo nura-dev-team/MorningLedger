@@ -290,6 +290,14 @@ const Approvals = () => {
 
   useEffect(() => { fetchData() }, [fetchData])
 
+  useEffect(() => {
+    if (!propertyId) return
+    const ch = supabase.channel(`approvals-invoices-${propertyId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'invoices', filter: `property_id=eq.${propertyId}` }, () => fetchData())
+      .subscribe()
+    return () => supabase.removeChannel(ch)
+  }, [propertyId, fetchData])
+
   const removeInvoice = (id) => setInvoices((prev) => prev.filter((i) => i.id !== id))
 
   return (

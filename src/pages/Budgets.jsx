@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { fmt, getMonthRange, budgetStatus } from '../lib/utils'
@@ -102,7 +102,6 @@ const BudgetCard = ({ name, code, budget, spent, remaining, utilPct }) => {
 
 const Budgets = () => {
   const { activePropertyId, periodYear: year, periodMonth: month } = useAuth()
-  const location = useLocation()
   const propertyId = activePropertyId
 
   const [budgets, setBudgets]   = useState([])
@@ -197,7 +196,17 @@ const Budgets = () => {
   }, [propertyId, year, month])
 
   useEffect(() => { fetchData() }, [fetchData])
-  useEffect(() => { if (budgets.length > 0) fetchData() }, [location.key])
+
+  useEffect(() => {
+    if (!propertyId) return
+    const tables = ['invoices', 'gl_codes']
+    const channels = tables.map(table =>
+      supabase.channel(`budgets-${table}-${propertyId}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table, filter: `property_id=eq.${propertyId}` }, () => fetchData())
+        .subscribe()
+    )
+    return () => channels.forEach(ch => supabase.removeChannel(ch))
+  }, [propertyId, fetchData])
 
   const overCount = budgets.filter((b) => b.remaining < 0).length
 

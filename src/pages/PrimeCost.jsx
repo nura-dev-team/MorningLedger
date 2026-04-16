@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { generatePrimeCostAnalysis } from '../lib/claudeApi'
@@ -10,7 +9,6 @@ import { fmt, fmtFull, fmtPct, fmtDateShort, getMonthRange, primeCostStatus } fr
 const PrimeCost = () => {
   const { activePropertyId, activeProperty } = useAuth()
   const propertyId = activePropertyId
-  const location = useLocation()
   const target = activeProperty?.prime_cost_target ?? 62.0
 
   const [loading, setLoading] = useState(true)
@@ -180,7 +178,17 @@ const PrimeCost = () => {
   }, [propertyId, year, month])
 
   useEffect(() => { fetchData() }, [fetchData])
-  useEffect(() => { if (totalSales > 0) fetchData() }, [location.key])
+
+  useEffect(() => {
+    if (!propertyId) return
+    const tables = ['sales_entries', 'labor_entries', 'invoices', 'gl_codes']
+    const channels = tables.map(table =>
+      supabase.channel(`primecost-${table}-${propertyId}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table, filter: `property_id=eq.${propertyId}` }, () => fetchData())
+        .subscribe()
+    )
+    return () => channels.forEach(ch => supabase.removeChannel(ch))
+  }, [propertyId, fetchData])
 
   // Derived
   const combined = fbCogs + totalLabor
