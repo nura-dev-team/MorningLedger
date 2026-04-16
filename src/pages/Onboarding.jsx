@@ -249,7 +249,7 @@ const Onboarding = () => {
       property_id:    propertyId,
       code:           '',
       name,
-      category:       name.toLowerCase().replace(/\s+/g, '_'),
+      category:       name.toLowerCase(),
       monthly_budget: 0,
       sort_order:     i + 1,
     }))
