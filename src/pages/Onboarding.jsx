@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { fmt, fmtPct } from '../lib/utils'
 import { createPropertyWithDefaults } from '../lib/propertyUtils'
-import { extractSalesData } from '../lib/claudeApi'
+import { extractSalesReport, extractLaborReport } from '../lib/claudeApi'
 import AddInvoiceModal from '../components/AddInvoiceModal'
 
 // ── Onboarding — Zero to Value in 48 Hours ────────────────────────────────────
@@ -28,8 +28,8 @@ const STEP_LABEL = {
   welcome:  'Welcome',
   property: 'Restaurant Setup',
   gl:       'Spending Categories',
-  sales:    'Last Month\'s Sales',
-  labor:    'Labor Cost',
+  sales:    'Connect Sales',
+  labor:    'Connect Labor',
   invoice:  'First Invoice',
   done:     'Complete',
 }
@@ -107,19 +107,22 @@ const Onboarding = () => {
   const [glLoading, setGlLoading] = useState(false)
   const [glError,   setGlError]   = useState(null)
 
-  // ── Step 4: Sales (AI-first with manual fallback) ───────────────────────────
-  // Modes: 'choose' → pick method | 'processing' → AI running | 'review' → edit extracted rows | 'manual' → manual form
+  // ── Step 4: Sales — connect / upload / manual ────────────────────────────────
+  // Modes: 'choose' | 'processing' | 'review' | 'manual'
   const [salesMode,      setSalesMode]      = useState('choose')
-  const [salesFiles,     setSalesFiles]     = useState([]) // Array<{ file, base64, mediaType, filename }>
-  const [salesExtracted, setSalesExtracted] = useState([]) // Array<period>
+  const [salesExtracted, setSalesExtracted] = useState([])
   const [salesForm,      setSalesForm]      = useState({ period_start: '', period_end: '', food_sales: '', beverage_sales: '', total_sales: '' })
   const [salesLoading,   setSalesLoading]   = useState(false)
   const [salesError,     setSalesError]     = useState(null)
+  const [salesAnimStep,  setSalesAnimStep]  = useState(0)
 
-  // ── Step 6: Labor ───────────────────────────────────────────────────────────
-  const [laborForm,    setLaborForm]    = useState({ period_start: '', period_end: '', total_labor: '' })
-  const [laborLoading, setLaborLoading] = useState(false)
-  const [laborError,   setLaborError]   = useState(null)
+  // ── Step 5: Labor — connect / upload / manual ──────────────────────────────
+  const [laborMode,      setLaborMode]      = useState('choose')
+  const [laborExtracted, setLaborExtracted] = useState([])
+  const [laborForm,      setLaborForm]      = useState({ period_start: '', period_end: '', total_labor: '' })
+  const [laborLoading,   setLaborLoading]   = useState(false)
+  const [laborError,     setLaborError]     = useState(null)
+  const [laborAnimStep,  setLaborAnimStep]  = useState(0)
 
   // ── Step 7: Invoice — AI modal trigger ──────────────────────────────────────
   const [showInvModal, setShowInvModal] = useState(false)
@@ -262,61 +265,54 @@ const Onboarding = () => {
     advance()
   }
 
-  const handleSalesFileSelect = async (e) => {
-    const files = Array.from(e.target.files || [])
-    if (files.length === 0) return
-    setSalesError(null)
+  // ── File → base64 helper (shared) ────────────────────────────────────────────
+  const fileToBase64 = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve({ base64: reader.result.toString().split(',')[1], mediaType: file.type })
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
 
-    const encoded = await Promise.all(files.map(file => new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => {
-        const base64 = reader.result.toString().split(',')[1]
-        resolve({ file, base64, mediaType: file.type, filename: file.name })
-      }
-      reader.onerror = reject
-      reader.readAsDataURL(file)
-    })))
-
-    setSalesFiles(prev => [...prev, ...encoded])
+  // ── Processing animation helper ─────────────────────────────────────────────
+  const EXTRACT_STEPS = ['Reading report', 'Extracting data', 'Mapping to dashboard']
+  const runProcessingAnim = (setStep) => {
+    const t1 = setTimeout(() => setStep(1), 800)
+    const t2 = setTimeout(() => setStep(2), 2000)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
   }
 
-  const handleSalesRemoveFile = (idx) => {
-    setSalesFiles(prev => prev.filter((_, i) => i !== idx))
-  }
-
-  const handleSalesExtract = async () => {
-    if (salesFiles.length === 0) {
-      setSalesError('Upload at least one document first.')
-      return
-    }
+  // ── Sales: upload handler ───────────────────────────────────────────────────
+  const handleSalesUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
     setSalesMode('processing')
     setSalesError(null)
+    setSalesAnimStep(0)
+    const cleanupAnim = runProcessingAnim(setSalesAnimStep)
 
     try {
-      const result = await extractSalesData(salesFiles.map(f => ({
-        base64:    f.base64,
-        mediaType: f.mediaType,
-        filename:  f.filename,
-      })))
-      setSalesExtracted(result.periods || [])
+      const { base64, mediaType } = await fileToBase64(file)
+      const result = await extractSalesReport(base64, mediaType)
+      cleanupAnim()
+      setSalesExtracted(result.entries || [])
       setSalesMode('review')
     } catch (err) {
-      setSalesError(err.message || 'Could not read those documents. Try again or enter manually.')
+      cleanupAnim()
+      setSalesError(err.message || 'Could not read that file. Try again or enter manually.')
       setSalesMode('choose')
     }
   }
 
+  // ── Sales: save extracted rows ──────────────────────────────────────────────
   const handleSalesSaveExtracted = async () => {
-    if (!createdProperty || salesExtracted.length === 0) {
-      advance()
-      return
-    }
+    if (!createdProperty || salesExtracted.length === 0) { advance(); return }
     setSalesLoading(true)
     setSalesError(null)
 
     const rows = salesExtracted.map(p => ({
       property_id:    createdProperty.id,
-      date:           p.period_end || p.period_start,
+      date:           p.date,
       food_sales:     p.food_sales ?? null,
       beverage_sales: p.beverage_sales ?? null,
       total_sales:    p.total_sales ?? 0,
@@ -329,6 +325,7 @@ const Onboarding = () => {
     advance()
   }
 
+  // ── Sales: save manual entry ────────────────────────────────────────────────
   const handleSalesManualSave = async () => {
     if (!salesForm.period_end || !salesForm.total_sales) {
       setSalesError('Period end date and total sales are required.')
@@ -340,9 +337,9 @@ const Onboarding = () => {
     const { error } = await supabase.from('sales_entries').upsert({
       property_id:    createdProperty.id,
       date:           salesForm.period_end,
-      food_sales:     parseFloat(salesForm.food_sales)     || null,
+      food_sales:     parseFloat(salesForm.food_sales) || null,
       beverage_sales: parseFloat(salesForm.beverage_sales) || null,
-      total_sales:    parseFloat(salesForm.total_sales)    || 0,
+      total_sales:    parseFloat(salesForm.total_sales) || 0,
       entered_by:     profile.id,
     }, { onConflict: 'property_id,date' })
 
@@ -351,8 +348,51 @@ const Onboarding = () => {
     advance()
   }
 
-  const handleLabor = async (skip = false) => {
-    if (skip) { advance(); return }
+  // ── Labor: upload handler ───────────────────────────────────────────────────
+  const handleLaborUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    setLaborMode('processing')
+    setLaborError(null)
+    setLaborAnimStep(0)
+    const cleanupAnim = runProcessingAnim(setLaborAnimStep)
+
+    try {
+      const { base64, mediaType } = await fileToBase64(file)
+      const result = await extractLaborReport(base64, mediaType)
+      cleanupAnim()
+      setLaborExtracted(result.entries || [])
+      setLaborMode('review')
+    } catch (err) {
+      cleanupAnim()
+      setLaborError(err.message || 'Could not read that file. Try again or enter manually.')
+      setLaborMode('choose')
+    }
+  }
+
+  // ── Labor: save extracted rows ──────────────────────────────────────────────
+  const handleLaborSaveExtracted = async () => {
+    if (!createdProperty || laborExtracted.length === 0) { advance(); return }
+    setLaborLoading(true)
+    setLaborError(null)
+
+    const rows = laborExtracted.map(p => ({
+      property_id:  createdProperty.id,
+      period_start: p.period_start,
+      period_end:   p.period_end,
+      total_labor:  parseFloat(p.total_labor) || 0,
+      entered_by:   profile.id,
+    }))
+
+    const { error } = await supabase.from('labor_entries').insert(rows)
+    setLaborLoading(false)
+    if (error) { setLaborError(error.message); return }
+    advance()
+  }
+
+  // ── Labor: save manual entry ────────────────────────────────────────────────
+  const handleLaborManualSave = async () => {
     if (!laborForm.period_start || !laborForm.period_end || !laborForm.total_labor) {
       setLaborError('All fields are required.')
       return
@@ -588,77 +628,60 @@ const Onboarding = () => {
         )}
 
         {/* ══════════════════════════════════════════════════
-            STEP 4 — LAST MONTH'S SALES (AI-FIRST)
+            STEP 4 — CONNECT SALES DATA
         ══════════════════════════════════════════════════ */}
         {step === 'sales' && (
           <div>
-            <div className="font-newsreader" style={{ fontSize: '28px', marginBottom: '6px' }}>Last month's sales</div>
+            <div className="font-newsreader" style={{ fontSize: '28px', marginBottom: '6px' }}>Connect sales data</div>
             <div style={{ fontSize: '13px', color: 'var(--text-3)', marginBottom: '20px', lineHeight: '1.6' }}>
-              Upload your POS reports and NURA will read them for you. One month of history is enough to light up your dashboard.
+              One month of sales history lights up your dashboard. Connect your POS, upload a report, or enter it yourself.
             </div>
 
-            {/* ── MODE: CHOOSE ──────────────────────────────────────────── */}
+            {/* ── MODE: CHOOSE ─── three cards ────────────────────────── */}
             {salesMode === 'choose' && (
               <>
-                {/* Option 1 — Upload / Photo */}
+                {/* Card 1 — Toast POS */}
                 <div className="nura-card" style={{ marginBottom: '12px', padding: '18px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--amber)', letterSpacing: '0.8px', textTransform: 'uppercase' }}>Recommended</div>
-                  </div>
-                  <div className="font-newsreader" style={{ fontSize: '18px', marginBottom: '6px' }}>Upload POS reports</div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-3)', marginBottom: '14px', lineHeight: 1.5 }}>
-                    Snap a photo or upload PDFs from Toast, Square, Clover, or any POS. Multiple files OK. NURA reads them.
-                  </div>
-
-                  {salesFiles.length > 0 && (
-                    <div style={{ marginBottom: '12px' }}>
-                      {salesFiles.map((f, i) => (
-                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', fontSize: '12px', color: 'var(--text-2)' }}>
-                          <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{f.filename}</div>
-                          <button onClick={() => handleSalesRemoveFile(i)} style={{ background: 'none', border: 'none', color: 'var(--text-4)', cursor: 'pointer', fontSize: '12px' }}>Remove</button>
-                        </div>
-                      ))}
+                    <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="#FF6600"/><text x="14" y="19" textAnchor="middle" fill="white" fontFamily="sans-serif" fontWeight="800" fontSize="14">T</text></svg>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>Connect Toast</div>
                     </div>
-                  )}
-
-                  <label className="btn-secondary" style={{ width: '100%', textAlign: 'center', display: 'block', cursor: 'pointer', marginBottom: '8px' }}>
-                    {salesFiles.length === 0 ? '+ Choose files or take photo' : '+ Add another file'}
-                    <input
-                      type="file"
-                      accept="image/*,application/pdf"
-                      multiple
-                      capture="environment"
-                      onChange={handleSalesFileSelect}
-                      style={{ display: 'none' }}
-                    />
-                  </label>
-
-                  {salesFiles.length > 0 && (
-                    <button className="btn-primary" onClick={handleSalesExtract} style={{ width: '100%' }}>
-                      Extract with NURA →
-                    </button>
-                  )}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-3)', marginBottom: '14px', lineHeight: 1.5 }}>
+                    Automatically sync your sales history. Sales, labor, and tips flow in every day.
+                  </div>
+                  <button className="btn-secondary" disabled style={{ width: '100%', cursor: 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                    Connect
+                    <span style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', background: 'var(--amber-bg)', color: 'var(--amber)', padding: '2px 6px', borderRadius: '4px' }}>Coming Soon</span>
+                  </button>
+                  <div style={{ fontSize: '11px', color: 'var(--text-4)', textAlign: 'center', marginTop: '8px' }}>We'll notify you when this is ready.</div>
                 </div>
 
-                {/* Option 2 — Toast integration (placeholder) */}
-                <div className="nura-card" style={{ marginBottom: '12px', padding: '18px', opacity: 0.6 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                    <div className="font-newsreader" style={{ fontSize: '18px' }}>Connect Toast</div>
-                    <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-4)', letterSpacing: '0.8px', textTransform: 'uppercase' }}>Coming soon</div>
+                {/* Card 2 — Upload a file or photo */}
+                <div className="nura-card" style={{ marginBottom: '12px', padding: '18px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: 'var(--surface-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-2)" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>Upload Sales Report</div>
+                    </div>
                   </div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-3)', marginBottom: '12px', lineHeight: 1.5 }}>
-                    One-click sync with your Toast account. Sales, labor, and tips flow in automatically.
+                  <div style={{ fontSize: '12px', color: 'var(--text-3)', marginBottom: '14px', lineHeight: 1.5 }}>
+                    CSV, PDF, or photo of any sales report — NURA will read it automatically.
                   </div>
-                  <button className="btn-secondary" disabled style={{ width: '100%', cursor: 'not-allowed' }}>
-                    Coming soon
-                  </button>
+                  <label className="btn-primary" style={{ width: '100%', textAlign: 'center', display: 'block', cursor: 'pointer' }}>
+                    Upload
+                    <input type="file" accept="image/*,application/pdf,.csv" capture="environment" onChange={handleSalesUpload} style={{ display: 'none' }} />
+                  </label>
                 </div>
 
                 {salesError && <div style={{ fontSize: '13px', color: 'var(--red)', marginBottom: '10px' }}>{salesError}</div>}
 
-                {/* Option 3 — Manual */}
+                {/* Card 3 — Enter manually (text link) */}
                 <button onClick={() => setSalesMode('manual')} style={{ ...skipBtn, marginBottom: '6px' }}>
-                  Enter manually instead
+                  I'll enter it myself
                 </button>
                 <button onClick={() => advance()} style={skipBtn}>
                   Skip for now
@@ -666,67 +689,76 @@ const Onboarding = () => {
               </>
             )}
 
-            {/* ── MODE: PROCESSING ──────────────────────────────────────── */}
+            {/* ── MODE: PROCESSING ────────────────────────────────────── */}
             {salesMode === 'processing' && (
-              <div className="nura-card" style={{ padding: '28px', textAlign: 'center' }}>
-                <div className="font-newsreader" style={{ fontSize: '20px', marginBottom: '8px' }}>NURA is reading your reports…</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-3)' }}>Identifying totals, dates, and breakdowns. This usually takes a few seconds.</div>
-              </div>
-            )}
-
-            {/* ── MODE: REVIEW ──────────────────────────────────────────── */}
-            {salesMode === 'review' && (
-              <>
-                <div className="nura-card" style={{ marginBottom: '12px' }}>
-                  {salesExtracted.length === 0 && (
-                    <div style={{ padding: '12px', fontSize: '13px', color: 'var(--text-3)' }}>
-                      NURA couldn't find any sales data in those documents. Try a clearer photo or enter manually.
-                    </div>
-                  )}
-                  {salesExtracted.map((p, i) => (
-                    <div key={i} style={{ padding: '12px 0', borderBottom: i < salesExtracted.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                      <div style={{ fontSize: '11px', color: 'var(--text-4)', marginBottom: '6px' }}>
-                        {p.source_filename} · {p.period_start}{p.period_end && p.period_end !== p.period_start ? ` → ${p.period_end}` : ''} · confidence: {p.confidence}
+              <div className="nura-card" style={{ padding: '28px' }}>
+                <div className="font-newsreader" style={{ fontSize: '20px', marginBottom: '16px', textAlign: 'center' }}>NURA is reading your report…</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {EXTRACT_STEPS.map((s, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{
+                        width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0,
+                        background: i <= salesAnimStep ? (i < salesAnimStep ? 'var(--green)' : 'var(--amber)') : 'var(--surface-alt)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: 'background 0.3s',
+                      }}>
+                        {i < salesAnimStep && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>}
+                        {i === salesAnimStep && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'white' }} />}
                       </div>
-                      <div style={{ display: 'flex', gap: '10px', fontSize: '13px' }}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: '11px', color: 'var(--text-4)' }}>Food</div>
-                          <input
-                            type="number" className="nura-input" value={p.food_sales ?? ''}
-                            onChange={e => setSalesExtracted(prev => prev.map((x, j) => j === i ? { ...x, food_sales: parseFloat(e.target.value) || null } : x))}
-                          />
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: '11px', color: 'var(--text-4)' }}>Beverage</div>
-                          <input
-                            type="number" className="nura-input" value={p.beverage_sales ?? ''}
-                            onChange={e => setSalesExtracted(prev => prev.map((x, j) => j === i ? { ...x, beverage_sales: parseFloat(e.target.value) || null } : x))}
-                          />
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: '11px', color: 'var(--text-4)' }}>Total</div>
-                          <input
-                            type="number" className="nura-input" value={p.total_sales ?? ''}
-                            onChange={e => setSalesExtracted(prev => prev.map((x, j) => j === i ? { ...x, total_sales: parseFloat(e.target.value) || 0 } : x))}
-                          />
-                        </div>
-                      </div>
+                      <div style={{ fontSize: '13px', color: i <= salesAnimStep ? 'var(--text)' : 'var(--text-4)' }}>{s}</div>
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* ── MODE: REVIEW ────────────────────────────────────────── */}
+            {salesMode === 'review' && (
+              <>
+                {salesExtracted.length === 0 ? (
+                  <div className="nura-card" style={{ padding: '18px', marginBottom: '12px' }}>
+                    <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>
+                      NURA couldn't find sales data in that file. Try a clearer photo or enter manually.
+                    </div>
+                  </div>
+                ) : (
+                  <div className="nura-card" style={{ padding: '18px', marginBottom: '12px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--green)', marginBottom: '10px' }}>Extracted</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                      <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>Entries found</div>
+                      <div style={{ fontSize: '13px', fontWeight: 600 }}>{salesExtracted.length}</div>
+                    </div>
+                    {salesExtracted.length > 0 && (
+                      <>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                          <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>Date range</div>
+                          <div style={{ fontSize: '13px', fontWeight: 600 }}>
+                            {salesExtracted[0]?.date}{salesExtracted.length > 1 ? ` → ${salesExtracted[salesExtracted.length - 1]?.date}` : ''}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>Total revenue</div>
+                          <div style={{ fontSize: '13px', fontWeight: 600 }}>
+                            ${salesExtracted.reduce((s, e) => s + (e.total_sales || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
 
                 {salesError && <div style={{ fontSize: '13px', color: 'var(--red)', marginBottom: '10px' }}>{salesError}</div>}
 
                 <button className="btn-primary" onClick={handleSalesSaveExtracted} disabled={salesLoading || salesExtracted.length === 0} style={{ marginBottom: '8px' }}>
-                  {salesLoading ? 'Saving…' : 'Looks good — Save & Continue →'}
+                  {salesLoading ? 'Saving…' : 'Confirm & Continue →'}
                 </button>
-                <button onClick={() => { setSalesMode('choose'); setSalesExtracted([]); setSalesFiles([]) }} style={skipBtn}>
+                <button onClick={() => { setSalesMode('choose'); setSalesExtracted([]) }} style={skipBtn}>
                   Start over
                 </button>
               </>
             )}
 
-            {/* ── MODE: MANUAL ──────────────────────────────────────────── */}
+            {/* ── MODE: MANUAL ────────────────────────────────────────── */}
             {salesMode === 'manual' && (
               <>
                 <div className="nura-card" style={{ marginBottom: '12px' }}>
@@ -768,7 +800,7 @@ const Onboarding = () => {
                   {salesLoading ? 'Saving…' : 'Save & Continue →'}
                 </button>
                 <button onClick={() => setSalesMode('choose')} style={{ ...skipBtn, marginBottom: '6px' }}>
-                  Back to upload
+                  Back
                 </button>
                 <button onClick={() => advance()} style={skipBtn}>
                   Skip for now
@@ -779,43 +811,159 @@ const Onboarding = () => {
         )}
 
         {/* ══════════════════════════════════════════════════
-            STEP 6 — LABOR COST
+            STEP 5 — CONNECT LABOR DATA
         ══════════════════════════════════════════════════ */}
         {step === 'labor' && (
           <div>
-            <div className="font-newsreader" style={{ fontSize: '28px', marginBottom: '6px' }}>Labor cost</div>
+            <div className="font-newsreader" style={{ fontSize: '28px', marginBottom: '6px' }}>Connect labor data</div>
             <div style={{ fontSize: '13px', color: 'var(--text-3)', marginBottom: '20px', lineHeight: '1.6' }}>
-              Your total labor cost for the current period. This is the biggest driver of prime cost.
+              Labor is the other half of prime cost. Connect your scheduling tool, upload a report, or enter a total.
             </div>
 
-            <div className="nura-card" style={{ marginBottom: '12px' }}>
-              <div style={fieldWrap}>
-                <label htmlFor="labor-start" style={lbl}>Period start</label>
-                <input id="labor-start" type="date" className="nura-input" value={laborForm.period_start} onChange={e => setLaborForm(f => ({ ...f, period_start: e.target.value }))} />
-              </div>
-              <div style={fieldWrap}>
-                <label htmlFor="labor-end" style={lbl}>Period end</label>
-                <input id="labor-end" type="date" className="nura-input" value={laborForm.period_end} onChange={e => setLaborForm(f => ({ ...f, period_end: e.target.value }))} />
-              </div>
-              <div>
-                <label htmlFor="labor-total" style={lbl}>Total labor cost ($)</label>
-                <input id="labor-total" type="number" className="nura-input" placeholder="e.g. 19053.00" value={laborForm.total_labor} onChange={e => setLaborForm(f => ({ ...f, total_labor: e.target.value }))} />
-              </div>
-            </div>
+            {/* ── MODE: CHOOSE ─── three cards ────────────────────────── */}
+            {laborMode === 'choose' && (
+              <>
+                {/* Card 1 — 7shifts */}
+                <div className="nura-card" style={{ marginBottom: '12px', padding: '18px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                    <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="#1A1A1A"/><text x="14" y="19.5" textAnchor="middle" fill="#FF6633" fontFamily="sans-serif" fontWeight="800" fontSize="13">7s</text></svg>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>Connect 7shifts</div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-3)', marginBottom: '14px', lineHeight: 1.5 }}>
+                    Automatically sync your labor history. Scheduled vs. actual hours and cost flow in daily.
+                  </div>
+                  <button className="btn-secondary" disabled style={{ width: '100%', cursor: 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                    Connect
+                    <span style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', background: 'var(--amber-bg)', color: 'var(--amber)', padding: '2px 6px', borderRadius: '4px' }}>Coming Soon</span>
+                  </button>
+                  <div style={{ fontSize: '11px', color: 'var(--text-4)', textAlign: 'center', marginTop: '8px' }}>We'll notify you when this is ready.</div>
+                </div>
 
-            {laborError && <div style={{ fontSize: '13px', color: 'var(--red)', marginBottom: '10px' }}>{laborError}</div>}
+                {/* Card 2 — Upload a file or photo */}
+                <div className="nura-card" style={{ marginBottom: '12px', padding: '18px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: 'var(--surface-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-2)" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>Upload Labor Report</div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-3)', marginBottom: '14px', lineHeight: 1.5 }}>
+                    CSV, PDF, or timesheet photo — NURA will read it.
+                  </div>
+                  <label className="btn-primary" style={{ width: '100%', textAlign: 'center', display: 'block', cursor: 'pointer' }}>
+                    Upload
+                    <input type="file" accept="image/*,application/pdf,.csv" capture="environment" onChange={handleLaborUpload} style={{ display: 'none' }} />
+                  </label>
+                </div>
 
-            <button
-              className="btn-primary"
-              onClick={() => handleLabor(false)}
-              disabled={laborLoading}
-              style={{ marginBottom: '10px' }}
-            >
-              {laborLoading ? 'Saving…' : 'Save & Continue →'}
-            </button>
-            <button onClick={() => handleLabor(true)} style={skipBtn}>
-              Skip for now
-            </button>
+                {laborError && <div style={{ fontSize: '13px', color: 'var(--red)', marginBottom: '10px' }}>{laborError}</div>}
+
+                {/* Card 3 — Enter manually (text link) */}
+                <button onClick={() => setLaborMode('manual')} style={{ ...skipBtn, marginBottom: '6px' }}>
+                  I'll enter it myself
+                </button>
+                <button onClick={() => advance()} style={skipBtn}>
+                  Skip for now
+                </button>
+              </>
+            )}
+
+            {/* ── MODE: PROCESSING ────────────────────────────────────── */}
+            {laborMode === 'processing' && (
+              <div className="nura-card" style={{ padding: '28px' }}>
+                <div className="font-newsreader" style={{ fontSize: '20px', marginBottom: '16px', textAlign: 'center' }}>NURA is reading your report…</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {EXTRACT_STEPS.map((s, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{
+                        width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0,
+                        background: i <= laborAnimStep ? (i < laborAnimStep ? 'var(--green)' : 'var(--amber)') : 'var(--surface-alt)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: 'background 0.3s',
+                      }}>
+                        {i < laborAnimStep && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>}
+                        {i === laborAnimStep && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'white' }} />}
+                      </div>
+                      <div style={{ fontSize: '13px', color: i <= laborAnimStep ? 'var(--text)' : 'var(--text-4)' }}>{s}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── MODE: REVIEW ────────────────────────────────────────── */}
+            {laborMode === 'review' && (
+              <>
+                {laborExtracted.length === 0 ? (
+                  <div className="nura-card" style={{ padding: '18px', marginBottom: '12px' }}>
+                    <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>
+                      NURA couldn't find labor data in that file. Try a clearer photo or enter manually.
+                    </div>
+                  </div>
+                ) : (
+                  <div className="nura-card" style={{ padding: '18px', marginBottom: '12px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--green)', marginBottom: '10px' }}>Extracted</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                      <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>Entries found</div>
+                      <div style={{ fontSize: '13px', fontWeight: 600 }}>{laborExtracted.length}</div>
+                    </div>
+                    {laborExtracted.map((p, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                        <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>{p.period_start} → {p.period_end}</div>
+                        <div style={{ fontSize: '13px', fontWeight: 600 }}>
+                          ${Number(p.total_labor).toLocaleString(undefined, { minimumFractionDigits: 2 })}{p.unit === 'hours' ? ' (hours)' : ''}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {laborError && <div style={{ fontSize: '13px', color: 'var(--red)', marginBottom: '10px' }}>{laborError}</div>}
+
+                <button className="btn-primary" onClick={handleLaborSaveExtracted} disabled={laborLoading || laborExtracted.length === 0} style={{ marginBottom: '8px' }}>
+                  {laborLoading ? 'Saving…' : 'Confirm & Continue →'}
+                </button>
+                <button onClick={() => { setLaborMode('choose'); setLaborExtracted([]) }} style={skipBtn}>
+                  Start over
+                </button>
+              </>
+            )}
+
+            {/* ── MODE: MANUAL ────────────────────────────────────────── */}
+            {laborMode === 'manual' && (
+              <>
+                <div className="nura-card" style={{ marginBottom: '12px' }}>
+                  <div style={fieldWrap}>
+                    <label htmlFor="labor-start" style={lbl}>Period start</label>
+                    <input id="labor-start" type="date" className="nura-input" value={laborForm.period_start} onChange={e => setLaborForm(f => ({ ...f, period_start: e.target.value }))} />
+                  </div>
+                  <div style={fieldWrap}>
+                    <label htmlFor="labor-end" style={lbl}>Period end</label>
+                    <input id="labor-end" type="date" className="nura-input" value={laborForm.period_end} onChange={e => setLaborForm(f => ({ ...f, period_end: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label htmlFor="labor-total" style={lbl}>Total labor cost ($)</label>
+                    <input id="labor-total" type="number" className="nura-input" placeholder="e.g. 19053.00" value={laborForm.total_labor} onChange={e => setLaborForm(f => ({ ...f, total_labor: e.target.value }))} />
+                  </div>
+                </div>
+
+                {laborError && <div style={{ fontSize: '13px', color: 'var(--red)', marginBottom: '10px' }}>{laborError}</div>}
+
+                <button className="btn-primary" onClick={handleLaborManualSave} disabled={laborLoading} style={{ marginBottom: '8px' }}>
+                  {laborLoading ? 'Saving…' : 'Save & Continue →'}
+                </button>
+                <button onClick={() => setLaborMode('choose')} style={{ ...skipBtn, marginBottom: '6px' }}>
+                  Back
+                </button>
+                <button onClick={() => advance()} style={skipBtn}>
+                  Skip for now
+                </button>
+              </>
+            )}
           </div>
         )}
 

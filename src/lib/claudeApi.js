@@ -384,3 +384,79 @@ Return ONLY valid JSON in this shape, nothing else:
   if (!jsonMatch) throw new Error('No JSON in extraction response')
   return JSON.parse(jsonMatch[0])
 }
+
+// ── Extract sales data from a single uploaded report ─────────────────────────
+export async function extractSalesReport(base64, mediaType) {
+  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+  if (!apiKey) throw new Error('VITE_ANTHROPIC_API_KEY is not set')
+
+  const systemPrompt = 'You are a data extraction assistant for NURA a restaurant financial operating system. Read this sales report and extract all sales data you can find. Return valid JSON only with this structure: an array called entries where each entry has date in YYYY-MM-DD format, food_sales as a number, beverage_sales as a number, and total_sales as a number. If you cannot separate food and beverage set both to null and put the total in total_sales. If a field is not present set it to null. Return only valid JSON no markdown no explanation.'
+
+  const imageContent = mediaType === 'application/pdf'
+    ? { type: 'document', source: { type: 'base64', media_type: mediaType, data: base64 } }
+    : { type: 'image',    source: { type: 'base64', media_type: mediaType, data: base64 } }
+
+  const res = await fetch(ANTHROPIC_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: 2048,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: [imageContent, { type: 'text', text: 'Extract all sales data from this report.' }] }],
+    }),
+  })
+
+  if (!res.ok) throw new Error(`Sales report extraction failed: ${await res.text()}`)
+
+  const data = await res.json()
+  let raw = data.content?.[0]?.text || ''
+  raw = raw.replace(/^```json?\s*/i, '').replace(/\s*```$/i, '').trim()
+  const match = raw.match(/[\[{][\s\S]*[\]}]/)
+  if (!match) throw new Error('No JSON in extraction response')
+  const parsed = JSON.parse(match[0])
+  return Array.isArray(parsed) ? { entries: parsed } : parsed
+}
+
+// ── Extract labor data from a single uploaded report ─────────────────────────
+export async function extractLaborReport(base64, mediaType) {
+  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+  if (!apiKey) throw new Error('VITE_ANTHROPIC_API_KEY is not set')
+
+  const systemPrompt = 'You are a data extraction assistant for NURA a restaurant financial operating system. Read this labor report or timesheet and extract all labor cost data. Return valid JSON only with this structure: an array called entries where each entry has period_start in YYYY-MM-DD format, period_end in YYYY-MM-DD format, and total_labor as a number representing total labor cost in dollars. If you see hours instead of dollars note that in a field called unit with value hours. Return only valid JSON no markdown no explanation.'
+
+  const imageContent = mediaType === 'application/pdf'
+    ? { type: 'document', source: { type: 'base64', media_type: mediaType, data: base64 } }
+    : { type: 'image',    source: { type: 'base64', media_type: mediaType, data: base64 } }
+
+  const res = await fetch(ANTHROPIC_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: 2048,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: [imageContent, { type: 'text', text: 'Extract all labor cost data from this report.' }] }],
+    }),
+  })
+
+  if (!res.ok) throw new Error(`Labor report extraction failed: ${await res.text()}`)
+
+  const data = await res.json()
+  let raw = data.content?.[0]?.text || ''
+  raw = raw.replace(/^```json?\s*/i, '').replace(/\s*```$/i, '').trim()
+  const match = raw.match(/[\[{][\s\S]*[\]}]/)
+  if (!match) throw new Error('No JSON in extraction response')
+  const parsed = JSON.parse(match[0])
+  return Array.isArray(parsed) ? { entries: parsed } : parsed
+}
