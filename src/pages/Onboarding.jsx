@@ -307,14 +307,18 @@ const Onboarding = () => {
     setSalesLoading(true)
     setSalesError(null)
 
-    const rows = salesExtracted.map(p => ({
-      property_id:    createdProperty.id,
-      date:           p.date,
-      food_sales:     p.food_sales ?? null,
-      beverage_sales: p.beverage_sales ?? null,
-      total_sales:    p.total_sales ?? 0,
-      entered_by:     profile.id,
-    }))
+    const rows = salesExtracted.map(p => {
+      const weekNum = p.week_number || (p.date ? Math.ceil(new Date(p.date + 'T00:00:00').getDate() / 7) : null)
+      return {
+        property_id:    createdProperty.id,
+        date:           p.date,
+        week_number:    weekNum,
+        food_sales:     p.food_sales != null ? parseFloat(p.food_sales) : null,
+        beverage_sales: p.beverage_sales != null ? parseFloat(p.beverage_sales) : null,
+        total_sales:    parseFloat(p.total_sales) || 0,
+        entered_by:     profile.id,
+      }
+    })
 
     const { error } = await supabase.from('sales_entries').upsert(rows, { onConflict: 'property_id,date' })
     setSalesLoading(false)
@@ -675,23 +679,39 @@ const Onboarding = () => {
                   </div>
                 ) : (
                   <div className="nura-card" style={{ padding: '18px', marginBottom: '12px' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--green)', marginBottom: '10px' }}>Extracted</div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--green)', marginBottom: '12px' }}>Extracted</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                       <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>Entries found</div>
                       <div style={{ fontSize: '13px', fontWeight: 600 }}>{salesExtracted.length}</div>
                     </div>
                     {salesExtracted.length > 0 && (
                       <>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                           <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>Date range</div>
                           <div style={{ fontSize: '13px', fontWeight: 600 }}>
                             {salesExtracted[0]?.date}{salesExtracted.length > 1 ? ` → ${salesExtracted[salesExtracted.length - 1]?.date}` : ''}
                           </div>
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>Total revenue</div>
-                          <div style={{ fontSize: '13px', fontWeight: 600 }}>
-                            ${salesExtracted.reduce((s, e) => s + (e.total_sales || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {salesExtracted.some(e => e.food_sales != null) && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                            <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>Food sales</div>
+                            <div style={{ fontSize: '13px', fontWeight: 600 }}>
+                              ${salesExtracted.reduce((s, e) => s + (parseFloat(e.food_sales) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                          </div>
+                        )}
+                        {salesExtracted.some(e => e.beverage_sales != null) && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                            <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>Beverage sales</div>
+                            <div style={{ fontSize: '13px', fontWeight: 600 }}>
+                              ${salesExtracted.reduce((s, e) => s + (parseFloat(e.beverage_sales) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid var(--border)' }}>
+                          <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>Total revenue</div>
+                          <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>
+                            ${salesExtracted.reduce((s, e) => s + (parseFloat(e.total_sales) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </div>
                         </div>
                       </>

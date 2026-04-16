@@ -390,7 +390,32 @@ export async function extractSalesReport(base64, mediaType) {
   const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
   if (!apiKey) throw new Error('VITE_ANTHROPIC_API_KEY is not set')
 
-  const systemPrompt = 'You are a data extraction assistant for NURA a restaurant financial operating system. Read this sales report and extract all sales data you can find. Return valid JSON only with this structure: an array called entries where each entry has date in YYYY-MM-DD format, food_sales as a number, beverage_sales as a number, and total_sales as a number. If you cannot separate food and beverage set both to null and put the total in total_sales. If a field is not present set it to null. Return only valid JSON no markdown no explanation.'
+  const systemPrompt = `You are a data extraction assistant for NURA, a restaurant financial operating system. Read this sales report and extract all sales data you can find.
+
+Return valid JSON only — no markdown, no explanation, no backticks.
+
+Structure:
+{
+  "entries": [
+    {
+      "date": "YYYY-MM-DD",
+      "week_number": number or null,
+      "food_sales": number or null,
+      "beverage_sales": number or null,
+      "total_sales": number
+    }
+  ]
+}
+
+Rules:
+- Create one entry per day or per period shown on the report.
+- date must be a valid ISO date (YYYY-MM-DD). If the report shows a week ending date, use that date.
+- week_number is the week of the month (1-5). If a report says "Week 1" or "W1" use that number. If dates are given, calculate the week of the month from the date (days 1-7 = week 1, 8-14 = week 2, etc).
+- food_sales is food revenue in dollars. beverage_sales is all beverage revenue (liquor + beer + wine) in dollars.
+- If the report separates food and beverage, provide both. If not, set both to null and put everything in total_sales.
+- total_sales is always the sum of all revenue for that entry. It must never be null or zero if there is revenue data.
+- If the report shows a single summary (e.g. monthly total), create one entry with the last day of that period as the date.
+- All dollar amounts are numbers with no currency symbols or commas.`
 
   const imageContent = mediaType === 'application/pdf'
     ? { type: 'document', source: { type: 'base64', media_type: mediaType, data: base64 } }
@@ -406,9 +431,9 @@ export async function extractSalesReport(base64, mediaType) {
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 2048,
+      max_tokens: 4096,
       system: systemPrompt,
-      messages: [{ role: 'user', content: [imageContent, { type: 'text', text: 'Extract all sales data from this report.' }] }],
+      messages: [{ role: 'user', content: [imageContent, { type: 'text', text: 'Extract all sales data from this report. Include food_sales and beverage_sales separately if visible. Include week_number if you can determine it.' }] }],
     }),
   })
 
