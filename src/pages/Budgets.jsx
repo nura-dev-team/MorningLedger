@@ -1,17 +1,27 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { fmt, getMonthRange, budgetStatus } from '../lib/utils'
 
 // ── Budgets screen ────────────────────────────────────────────────────────────
-// Queries gl_codes for budget targets and approved invoices for the current month.
 
-const BudgetCard = ({ name, code, budget, spent, remaining, utilPct }) => {
+const BudgetCard = ({ name, code, budget, spent, remaining, utilPct, onSetBudget }) => {
+  const [editing, setEditing] = useState(false)
+  const [editVal, setEditVal] = useState('')
+  const [saving, setSaving] = useState(false)
+
   const noBudgetSet = budget === 0 && spent === 0
   const budgetSetNoSpend = budget > 0 && spent === 0
 
-  // Ghost state — no budget target set at all
+  const handleSave = async () => {
+    const val = parseFloat(editVal)
+    if (!val || val <= 0) return
+    setSaving(true)
+    await onSetBudget(val)
+    setSaving(false)
+    setEditing(false)
+  }
+
   if (noBudgetSet) {
     return (
       <div className="nura-card">
@@ -24,12 +34,51 @@ const BudgetCard = ({ name, code, budget, spent, remaining, utilPct }) => {
         <div className="pbar-wrap">
           <div className="ghost" style={{ width: '100%', height: '100%', borderRadius: 'inherit' }} />
         </div>
-        <div style={{ fontSize: '13px', color: 'var(--text-4)', marginTop: '3px' }}>
-          Budget target not set{' '}
-          <Link to="/settings/data" style={{ color: 'var(--amber)', fontSize: '12px', textDecoration: 'none', fontWeight: '500' }}>
-            Set budget →
-          </Link>
-        </div>
+        {!editing ? (
+          <div style={{ fontSize: '13px', color: 'var(--text-4)', marginTop: '3px' }}>
+            Budget target not set{' '}
+            <button
+              onClick={() => { setEditing(true); setEditVal('') }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--amber)', fontSize: '12px', fontWeight: 500, padding: 0, fontFamily: 'inherit' }}
+            >
+              Set budget →
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', gap: '8px', marginTop: '8px', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }}>
+              <span style={{ fontSize: '13px', color: 'var(--text-3)' }}>$</span>
+              <input
+                type="number"
+                className="nura-input"
+                placeholder="e.g. 3000"
+                min="0"
+                value={editVal}
+                onChange={e => setEditVal(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleSave() }}
+                autoFocus
+                style={{ padding: '8px 10px', fontSize: '13px' }}
+              />
+            </div>
+            <button
+              onClick={handleSave}
+              disabled={saving || !editVal}
+              style={{
+                background: 'var(--text)', color: 'white', border: 'none', borderRadius: 'var(--r-sm)',
+                padding: '8px 16px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                opacity: saving || !editVal ? 0.4 : 1,
+              }}
+            >
+              {saving ? '…' : 'Save'}
+            </button>
+            <button
+              onClick={() => setEditing(false)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-4)', fontSize: '13px', padding: '8px', fontFamily: 'inherit' }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
       </div>
     )
   }
@@ -151,7 +200,7 @@ const Budgets = () => {
     const [glRes, invRes] = await Promise.all([
       supabase
         .from('gl_codes')
-        .select('code, name, monthly_budget')
+        .select('id, code, name, category, monthly_budget')
         .eq('property_id', propertyId)
         .eq('is_active', true)
         .order('sort_order'),
@@ -182,8 +231,10 @@ const Budgets = () => {
       const remaining = budget - spent
       const utilPct = budget > 0 ? (spent / budget) * 100 : (spent > 0 ? 100 : 0)
       return {
+        id: gl.id,
         name: gl.name,
         code: gl.code,
+        category: gl.category,
         budget,
         spent,
         remaining,
@@ -257,7 +308,15 @@ const Budgets = () => {
               No budget categories configured yet. Add one below.
             </div>
           ) : (
-            budgets.map((b, i) => <BudgetCard key={b.code || `gl-${i}`} {...b} />)
+            budgets.map((b, i) => (
+              <BudgetCard
+                key={b.code || `gl-${i}`}
+                {...b}
+                onSetBudget={async (amount) => {
+                  await supabase.from('gl_codes').update({ monthly_budget: amount }).eq('id', b.id)
+                }}
+              />
+            ))
           )}
 
           {/* ── Add category ── */}
