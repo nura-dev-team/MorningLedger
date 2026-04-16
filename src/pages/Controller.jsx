@@ -306,6 +306,10 @@ const Controller = () => {
 
       setModalSaving(false)
       if (error) { setModalError(error.message); return }
+      await refreshProfile()
+      setShowModal(false)
+      setEditingProp(null)
+      return
     } else {
       // Create new property with defaults
       const { property, error } = await createPropertyWithDefaults({
@@ -333,10 +337,6 @@ const Controller = () => {
       await refreshProfile()
       return
     }
-
-    // Refresh properties in context (edit path)
-    await refreshProfile()
-    setShowModal(false)
   }
 
   // ── GL codes step handlers ───────────────────────────────────────────────────

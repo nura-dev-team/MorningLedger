@@ -186,7 +186,7 @@ const Onboarding = () => {
   // ── Step handlers ───────────────────────────────────────────────────────────
 
   const handleProperty = async () => {
-    if (!propForm.name.trim()) return
+    if (!propForm.name.trim() || propLoading || createdProperty) return
     setPropLoading(true)
     setPropError(null)
 
