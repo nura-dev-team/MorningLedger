@@ -306,32 +306,62 @@ const Home = () => {
       {/* ── 7. Two-col: Weekly Revenue | Live F&B Cost vs Sales ── */}
       {!loading && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
-          {/* Weekly Revenue */}
+          {/* Weekly Revenue — bar chart */}
           <Card title="Weekly Revenue">
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '5px', height: '80px' }}>
-              {weekEntries.length > 0 ? weekEntries.map(([wk, rev], idx) => {
-                const pct = (rev / maxWeekRev) * 100
-                const isLast = idx === weekEntries.length - 1
-                return (
-                  <div key={wk} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
-                    <div style={{ fontSize: '10px', color: isLast ? 'var(--green)' : 'var(--text-3)', fontWeight: isLast ? 700 : 400 }}>
-                      {rev >= 1000 ? `$${(rev/1000).toFixed(0).toLocaleString()}k` : `$${Math.round(rev)}`}
-                    </div>
-                    <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', width: '100%' }}>
-                      <div style={{ width: '100%', height: `${pct}%`, borderRadius: '3px 3px 0 0', background: pct > 25 ? 'var(--green)' : 'var(--border)' }} />
-                    </div>
-                    <div style={{ fontSize: '10px', color: 'var(--text-4)' }}>Wk {wk}</div>
-                  </div>
-                )
-              }) : [10,18,28,50,80].map((h,i) => (
-                <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
-                  <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', width: '100%' }}>
-                    <div className="ghost" style={{ width: '100%', height: `${h}%`, borderRadius: '3px 3px 0 0' }} />
-                  </div>
-                  <div style={{ fontSize: '10px', color: 'var(--text-4)' }}>Wk {i+1}</div>
+            {weekEntries.length > 0 ? (
+              <>
+                {/* Bars */}
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '6px', height: '100px', marginBottom: '6px' }}>
+                  {weekEntries.map(([wk, rev], idx) => {
+                    const pct = Math.max((rev / maxWeekRev) * 100, 4)
+                    const isMax = rev === maxWeekRev
+                    const isMin = rev === Math.min(...weekEntries.map(([,v]) => v))
+                    return (
+                      <div key={wk} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}>
+                        <div style={{
+                          width: '100%', height: `${pct}%`, minHeight: '4px',
+                          borderRadius: '4px 4px 1px 1px',
+                          background: isMax ? 'var(--green)' : isMin ? 'var(--orange)' : 'var(--amber)',
+                          transition: 'height 0.4s ease',
+                        }} />
+                      </div>
+                    )
+                  })}
                 </div>
-              ))}
-            </div>
+                {/* Labels row */}
+                <div style={{ display: 'flex', gap: '6px', marginBottom: '4px' }}>
+                  {weekEntries.map(([wk]) => (
+                    <div key={wk} style={{ flex: 1, textAlign: 'center', fontSize: '9px', fontWeight: 500, color: 'var(--text-4)' }}>Wk {wk}</div>
+                  ))}
+                </div>
+                {/* Values row */}
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  {weekEntries.map(([wk, rev], idx) => {
+                    const isMax = rev === maxWeekRev
+                    return (
+                      <div key={wk} style={{ flex: 1, textAlign: 'center', fontSize: '10px', fontWeight: isMax ? 700 : 400, color: isMax ? 'var(--green)' : 'var(--text-3)' }}>
+                        {rev >= 1000 ? `$${(rev/1000).toFixed(1)}k` : `$${Math.round(rev)}`}
+                      </div>
+                    )
+                  })}
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '6px', height: '100px', marginBottom: '6px' }}>
+                  {[10,18,28,50,80].map((h,i) => (
+                    <div key={i} style={{ flex: 1, display: 'flex', alignItems: 'flex-end', height: '100%' }}>
+                      <div className="ghost" style={{ width: '100%', height: `${h}%`, borderRadius: '4px 4px 1px 1px' }} />
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  {[1,2,3,4,5].map(w => (
+                    <div key={w} style={{ flex: 1, textAlign: 'center', fontSize: '9px', fontWeight: 500, color: 'var(--text-4)' }}>Wk {w}</div>
+                  ))}
+                </div>
+              </>
+            )}
           </Card>
 
           {/* Live F&B Cost vs Sales */}
