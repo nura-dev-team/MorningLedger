@@ -294,20 +294,15 @@ export const extractInvoiceData = async (base64Data, mediaType, glCodes, vendors
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 1000,
+        max_tokens: 2048,
         system: SYSTEM_PROMPT,
         messages: [
           {
             role: 'user',
             content: [
-              {
-                type: 'image',
-                source: {
-                  type: 'base64',
-                  media_type: mediaType,
-                  data: base64Data,
-                },
-              },
+              mediaType === 'application/pdf'
+                ? { type: 'document', source: { type: 'base64', media_type: mediaType, data: base64Data } }
+                : { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64Data } },
               {
                 type: 'text',
                 text: userText,

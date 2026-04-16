@@ -452,7 +452,16 @@ const AddInvoiceModal = ({ onClose, onSuccess }) => {
                   : 'Something went wrong processing this invoice.'}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-                <button onClick={() => { setModalState('upload'); setSelectedFile(null) }} style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 'var(--r)', padding: '20px 16px', cursor: 'pointer', textAlign: 'center', fontFamily: "'DM Sans', sans-serif" }}>
+                <button onClick={() => {
+                  setModalState('upload')
+                  setSelectedFile(null)
+                  setRetryReason(null)
+                  setExtraction(null)
+                  apiDoneRef.current = false
+                  apiResultRef.current = null
+                  if (fileInputRef.current) fileInputRef.current.value = ''
+                  if (cameraInputRef.current) cameraInputRef.current.value = ''
+                }} style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 'var(--r)', padding: '20px 16px', cursor: 'pointer', textAlign: 'center', fontFamily: "'DM Sans', sans-serif" }}>
                   <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text)' }}>Try again</div>
                 </button>
                 <button onClick={() => setModalState('manual')} style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 'var(--r)', padding: '20px 16px', cursor: 'pointer', textAlign: 'center', fontFamily: "'DM Sans', sans-serif" }}>
