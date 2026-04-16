@@ -48,15 +48,15 @@ const validatePassword = (pw) => {
 const AUTH_SLIDES = [
   {
     caption: 'Did we hit prime cost this week?',
-    image:   '/auth-bg/kitchen-morning.jpg',
+    image:   '/auth-bg/GettyImages_FineDiningChefPlating.jpg',
   },
   {
     caption: 'Know before service. Every morning.',
-    image:   '/auth-bg/prep-station.jpg',
+    image:   '/auth-bg/food-beverage-jobs.jpg',
   },
   {
     caption: 'Built for the people who built this.',
-    image:   '/auth-bg/bar-pour.jpg',
+    image:   '/auth-bg/woman-man-ipad-calculator-1024x683.jpg',
   },
 ]
 
