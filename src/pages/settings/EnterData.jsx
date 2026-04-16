@@ -636,9 +636,26 @@ const EnterData = () => {
                     >
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: '14px', fontWeight: '500' }}>{v.name}</div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-4)' }}>
-                          {v.default_gl_code && <span className="gl-pill">{v.default_gl_code}</span>}
-                          {v.delivery_frequency && <span style={{ marginLeft: v.default_gl_code ? '6px' : 0 }}>{v.delivery_frequency}</span>}
+                        <div style={{ fontSize: '12px', color: 'var(--text-4)', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                          <select
+                            value={v.default_gl_code || ''}
+                            onChange={async (e) => {
+                              const code = e.target.value || null
+                              await supabase.from('vendors').update({ default_gl_code: code }).eq('id', v.id)
+                              setVendors(prev => prev.map(x => x.id === v.id ? { ...x, default_gl_code: code } : x))
+                            }}
+                            style={{
+                              background: 'none', border: '1px solid var(--border)', borderRadius: '4px',
+                              padding: '2px 6px', fontSize: '11px', color: v.default_gl_code ? 'var(--text-2)' : 'var(--text-4)',
+                              cursor: 'pointer', fontFamily: 'inherit', maxWidth: '140px',
+                            }}
+                          >
+                            <option value="">No category</option>
+                            {vendorGlCodes.map(gl => (
+                              <option key={gl.id} value={gl.code}>{gl.name}</option>
+                            ))}
+                          </select>
+                          {v.delivery_frequency && <span>· {v.delivery_frequency}</span>}
                         </div>
                       </div>
                       <button

@@ -376,11 +376,27 @@ const Ledger = () => {
                               {statusTag}
                             </span>
                           </div>
-                          <div style={{ fontSize: '12px', color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {v.default_gl_code ? `GL ${v.default_gl_code}` : ''}
-                            {v.default_gl_code && v.delivery_frequency ? ' · ' : ''}
-                            {v.delivery_frequency ? `Avg ${v.delivery_frequency}` : ''}
-                            {!v.default_gl_code && !v.delivery_frequency ? 'No details' : ''}
+                          <div style={{ fontSize: '12px', color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                            <select
+                              value={v.default_gl_code || ''}
+                              onClick={e => e.stopPropagation()}
+                              onChange={async (e) => {
+                                const code = e.target.value || null
+                                await supabase.from('vendors').update({ default_gl_code: code }).eq('id', v.id)
+                                setVendors(prev => prev.map(x => x.id === v.id ? { ...x, default_gl_code: code } : x))
+                              }}
+                              style={{
+                                background: 'none', border: '1px solid var(--border)', borderRadius: '4px',
+                                padding: '2px 6px', fontSize: '11px', color: v.default_gl_code ? 'var(--text-2)' : 'var(--text-4)',
+                                cursor: 'pointer', fontFamily: 'inherit', maxWidth: '140px',
+                              }}
+                            >
+                              <option value="">No category</option>
+                              {glCodesForVendor.map(gl => (
+                                <option key={gl.id} value={gl.code}>{gl.name}</option>
+                              ))}
+                            </select>
+                            {v.delivery_frequency && <span>· {v.delivery_frequency}</span>}
                           </div>
                         </div>
 
