@@ -385,14 +385,37 @@ const Ledger = () => {
                           </div>
                         </div>
 
-                        {/* Stats */}
-                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                          <div style={{ fontSize: '14px', fontWeight: 600 }}>
-                            {invCount} {invCount === 1 ? 'invoice' : 'invoices'}
+                        {/* Stats + toggle */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: '14px', fontWeight: 600 }}>
+                              {invCount} {invCount === 1 ? 'invoice' : 'invoices'}
+                            </div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-3)' }}>
+                              {lastDate ? `Last: ${fmtDateShort(lastDate)}` : 'No invoices'}
+                            </div>
                           </div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-3)' }}>
-                            {lastDate ? `Last: ${fmtDateShort(lastDate)}` : 'No invoices'}
-                          </div>
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation()
+                              const next = !v.is_active
+                              await supabase.from('vendors').update({ is_active: next }).eq('id', v.id)
+                              setVendors(prev => prev.map(x => x.id === v.id ? { ...x, is_active: next } : x))
+                            }}
+                            style={{
+                              width: '36px', height: '20px', borderRadius: '10px', border: 'none', cursor: 'pointer',
+                              background: v.is_active ? 'var(--green)' : 'var(--border)',
+                              position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+                            }}
+                            aria-label={v.is_active ? 'Deactivate vendor' : 'Activate vendor'}
+                          >
+                            <span style={{
+                              position: 'absolute', top: '2px',
+                              left: v.is_active ? '18px' : '2px',
+                              width: '16px', height: '16px', borderRadius: '50%',
+                              background: 'white', transition: 'left 0.2s',
+                            }} />
+                          </button>
                         </div>
                       </div>
                     )

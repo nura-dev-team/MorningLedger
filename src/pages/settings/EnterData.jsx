@@ -629,20 +629,38 @@ const EnterData = () => {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        padding: '8px 0',
+                        padding: '10px 0',
                         borderBottom: i < vendors.length - 1 ? '1px solid var(--border)' : 'none',
+                        opacity: v.is_active ? 1 : 0.55,
                       }}
                     >
-                      <div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: '14px', fontWeight: '500' }}>{v.name}</div>
                         <div style={{ fontSize: '12px', color: 'var(--text-4)' }}>
                           {v.default_gl_code && <span className="gl-pill">{v.default_gl_code}</span>}
                           {v.delivery_frequency && <span style={{ marginLeft: v.default_gl_code ? '6px' : 0 }}>{v.delivery_frequency}</span>}
                         </div>
                       </div>
-                      <span style={{ fontSize: '11px', fontWeight: '600', color: v.is_active ? 'var(--green)' : 'var(--text-4)' }}>
-                        {v.is_active ? 'Active' : 'Inactive'}
-                      </span>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const next = !v.is_active
+                          await supabase.from('vendors').update({ is_active: next }).eq('id', v.id)
+                          setVendors(prev => prev.map(x => x.id === v.id ? { ...x, is_active: next } : x))
+                        }}
+                        style={{
+                          width: '40px', height: '22px', borderRadius: '11px', border: 'none', cursor: 'pointer',
+                          background: v.is_active ? 'var(--green)' : 'var(--border)',
+                          position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+                        }}
+                      >
+                        <span style={{
+                          position: 'absolute', top: '2px',
+                          left: v.is_active ? '20px' : '2px',
+                          width: '18px', height: '18px', borderRadius: '50%',
+                          background: 'white', transition: 'left 0.2s',
+                        }} />
+                      </button>
                     </div>
                   ))}
                 </div>
