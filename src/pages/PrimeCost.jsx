@@ -7,14 +7,12 @@ import { fmt, fmtFull, fmtPct, fmtDateShort, getMonthRange, primeCostStatus } fr
 // ── PrimeCost screen ─────────────────────────────────────────────────────────
 
 const PrimeCost = () => {
-  const { activePropertyId, activeProperty } = useAuth()
+  const { activePropertyId, activeProperty, periodYear: year, periodMonth: month } = useAuth()
   const propertyId = activePropertyId
   const target = activeProperty?.prime_cost_target ?? 62.0
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-
-  const { periodYear: year, periodMonth: month } = useAuth()
 
   // Core data
   const [totalSales, setTotalSales] = useState(0)
@@ -27,8 +25,8 @@ const PrimeCost = () => {
   const [bevSpent, setBevSpent] = useState(0)
   const [foodSalesTotal, setFoodSalesTotal] = useState(0)
   const [bevSalesTotal, setBevSalesTotal] = useState(0)
-  const [foodBudgetTotal, setFoodBudgetTotal] = useState(0)
-  const [foodBudgetRemaining, setFoodBudgetRemaining] = useState(0)
+  const [totalBudget, setTotalBudgetState] = useState(0)
+  const [totalBudgetRemaining, setTotalBudgetRemaining] = useState(0)
 
   // AI analysis
   const [aiAnalysis, setAiAnalysis] = useState(null)
@@ -83,24 +81,20 @@ const PrimeCost = () => {
     const salesMtd = sales.reduce((s, r) => s + Number(r.total_sales), 0)
     const laborMtd = labor.reduce((s, l) => s + Number(l.total_labor), 0)
 
-    // F&B codes
-    const foodBevCodes = glCodes.filter(g => ['food', 'liquor', 'wine', 'beer'].includes(g.category)).map(g => g.code)
-    const cogsMtd = invoices.filter(i => foodBevCodes.includes(i.gl_code)).reduce((s, i) => s + Number(i.amount), 0)
+    // Total COGS from all budget categories
+    const allCodes = glCodes.map(g => g.code)
+    const cogsMtd = invoices.filter(i => allCodes.includes(i.gl_code)).reduce((s, i) => s + Number(i.amount), 0)
 
-    // Food vs Bev spend
-    const foodCodes = glCodes.filter(g => g.category === 'food').map(g => g.code)
-    const bevCodes = glCodes.filter(g => ['liquor', 'wine', 'beer'].includes(g.category)).map(g => g.code)
-    const fSpent = invoices.filter(i => foodCodes.includes(i.gl_code)).reduce((s, i) => s + Number(i.amount), 0)
-    const bSpent = invoices.filter(i => bevCodes.includes(i.gl_code)).reduce((s, i) => s + Number(i.amount), 0)
+    // Total spend
+    const tSpent = cogsMtd
 
     // Food / bev sales from sales_entries
     const fSalesTotal = sales.reduce((s, r) => s + Number(r.food_sales || 0), 0)
     const bSalesTotal = sales.reduce((s, r) => s + Number(r.beverage_sales || 0), 0)
 
-    // Food budget
-    const foodGl = glCodes.find(g => g.category === 'food')
-    const fBudgetTotal = foodGl ? Number(foodGl.monthly_budget) : 0
-    const fBudgetRemaining = fBudgetTotal - fSpent
+    // Total budget across all categories
+    const tBudgetTotal = glCodes.reduce((s, g) => s + Number(g.monthly_budget), 0)
+    const tBudgetRemaining = tBudgetTotal - tSpent
 
     // Weekly data — aggregate by week_number
     const weekMap = {}
@@ -128,7 +122,6 @@ const PrimeCost = () => {
     }))
 
     // ── Vendor price changes ───────────────────────────────────────────────
-    // Group invoices by vendor + GL code, compare amounts across dates
     const vendorGroups = {}
     for (const inv of invoices) {
       const vendorName = inv.vendors?.name
@@ -141,13 +134,11 @@ const PrimeCost = () => {
     const changes = []
     for (const group of Object.values(vendorGroups)) {
       if (group.invoices.length < 2) continue
-      // Sort by date ascending
       const sorted = [...group.invoices].sort((a, b) => a.date.localeCompare(b.date))
       const oldest = sorted[0]
       const newest = sorted[sorted.length - 1]
       if (oldest.amount === 0 || oldest.date === newest.date) continue
       const pctChange = ((newest.amount - oldest.amount) / oldest.amount) * 100
-      // Only show changes > 3%
       if (Math.abs(pctChange) < 3) continue
       changes.push({
         vendor: group.vendor,
@@ -159,7 +150,6 @@ const PrimeCost = () => {
         pctChange,
       })
     }
-    // Sort by absolute magnitude
     changes.sort((a, b) => Math.abs(b.pctChange) - Math.abs(a.pctChange))
 
     setTotalSales(salesMtd)
@@ -168,12 +158,12 @@ const PrimeCost = () => {
     setWeeklyData(weekly)
     setBudgetData(budgets)
     setPriceChanges(changes.slice(0, 5))
-    setFoodSpent(fSpent)
-    setBevSpent(bSpent)
+    setFoodSpent(tSpent)
+    setBevSpent(0)
     setFoodSalesTotal(fSalesTotal)
     setBevSalesTotal(bSalesTotal)
-    setFoodBudgetTotal(fBudgetTotal)
-    setFoodBudgetRemaining(fBudgetRemaining)
+    setTotalBudgetState(tBudgetTotal)
+    setTotalBudgetRemaining(tBudgetRemaining)
     setLoading(false)
   }, [propertyId, year, month])
 
@@ -212,7 +202,7 @@ const PrimeCost = () => {
     setAiLoading(true)
 
     const weeklyTrend = weeklyData
-      .map(w => `${w.week}:$${Math.round(w.revenue).toLocaleString()}`)
+      .map(w => `${w.label}:$${Math.round(w.revenue).toLocaleString()}`)
       .join(', ')
 
     const budgetSummary = budgetData
@@ -226,13 +216,12 @@ const PrimeCost = () => {
 
     generatePrimeCostAnalysis({
       primeCostPct, primeCostTarget: target, totalSales, totalLabor, fbCogs,
-      fbPct, laborPct, foodSpent, foodBudgetTotal, foodBudgetRemaining,
+      fbPct, laborPct, foodSpent, foodBudgetTotal: totalBudget, foodBudgetRemaining: totalBudgetRemaining,
       bevSpent, weeklyTrend, budgetSummary, priceChanges: priceChangeSummary,
     }).then(result => {
       setAiAnalysis(result || null)
       setAiLoading(false)
     })
-  // Deps are primitives only — the lastAiKey ref guards against duplicate calls
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasData, primeCostPct, totalSales, fbCogs, totalLabor])
 
@@ -281,7 +270,7 @@ const PrimeCost = () => {
               <div style={{ width: `${laborBarPct}%`, background: 'var(--orange)', borderRadius: '3px' }} />
             </div>
             <div style={{ display: 'flex', justifyContent: 'center', gap: '24px', fontSize: '12px', color: 'var(--text-3)' }}>
-              <span>F&B: {fmtPct(fbPct)}</span><span>Labor: {fmtPct(laborPct)}</span>
+              <span>COGS: {fmtPct(fbPct)}</span><span>Labor: {fmtPct(laborPct)}</span>
             </div>
           </>
         )}
@@ -295,10 +284,10 @@ const PrimeCost = () => {
       {/* ── Breakdown card ── */}
       <div className="section-label">Breakdown</div>
       <div className="nura-card">
-        {/* F&B COGS row */}
+        {/* COGS row */}
         <div style={{ padding: '10px 0', borderBottom: '1px solid var(--border-light)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '4px' }}>
-            <span style={{ fontWeight: 500 }}>Food & Beverage COGS</span>
+            <span style={{ fontWeight: 500 }}>Total COGS</span>
             <span>
               <strong>{fbPct !== null ? fmtPct(fbPct) : '—%'}</strong>
               {fbPct !== null && fbPct > 30 && (
@@ -309,7 +298,7 @@ const PrimeCost = () => {
           <div style={{ height: '10px', background: 'var(--surface-alt)', borderRadius: '5px', overflow: 'hidden' }}>
             <div style={{ height: '100%', width: `${Math.min(fbPct || 0, 100)}%`, background: (fbPct || 0) > 35 ? 'var(--amber)' : 'var(--green)', borderRadius: '5px' }} />
           </div>
-          {hasData && <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '4px' }}>{fmt(fbCogs)} invoiced spend · {fmt(totalSales)} revenue</div>}
+          {hasData && <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '4px' }}>{fmt(fbCogs)} invoiced · {fmt(totalBudget)} budget · {fmt(totalBudgetRemaining)} remaining</div>}
         </div>
 
         {/* Labor row */}
@@ -373,7 +362,6 @@ const PrimeCost = () => {
                     borderBottom: i < priceChanges.length - 1 ? '1px solid var(--border-light)' : 'none',
                   }}
                 >
-                  {/* Arrow avatar */}
                   <div style={{
                     width: '30px', height: '30px', borderRadius: '50%', flexShrink: 0,
                     background: isUp ? 'var(--amber-bg)' : 'var(--green-bg)',
@@ -383,8 +371,6 @@ const PrimeCost = () => {
                   }}>
                     {isUp ? '↑' : '↓'}
                   </div>
-
-                  {/* Info */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: '12.5px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {pc.vendor} — {pc.description}
@@ -393,8 +379,6 @@ const PrimeCost = () => {
                       {fmtFull(pc.oldAmount)} → {fmtFull(pc.newAmount)} · {fmtDateShort(pc.newDate)} vs {fmtDateShort(pc.oldDate)}
                     </div>
                   </div>
-
-                  {/* Percentage */}
                   <div style={{
                     fontSize: '11px', fontWeight: 600, flexShrink: 0,
                     color: isUp ? 'var(--amber)' : 'var(--green)',
@@ -444,7 +428,6 @@ const PrimeCost = () => {
                   <circle key={i} cx={p.x} cy={p.y} r="4" fill="var(--surface)" stroke="var(--green)" strokeWidth="2" />
                 ))}
               </svg>
-              {/* Labels + values + WoW change */}
               <div style={{ display: 'flex', gap: '4px', marginTop: '8px' }}>
                 {pts.map((p, i) => (
                   <div key={i} style={{ flex: 1, textAlign: 'center' }}>
@@ -544,7 +527,7 @@ function getFallbackDriving(primeCostPct, totalLabor, totalSales, fbCogs, target
   if (primeCostPct > target * 2)
     return `Labor ($${totalLabor.toLocaleString()}) exceeds revenue ($${totalSales.toLocaleString()}). This is a ramp-up pattern — prime cost normalizes as sales grow.`
   if (primeCostPct > target)
-    return `Prime cost at ${fmtPct(primeCostPct)} is above target. F&B is $${fbCogs.toLocaleString()} and labor is $${totalLabor.toLocaleString()} against $${totalSales.toLocaleString()} in sales.`
+    return `Prime cost at ${fmtPct(primeCostPct)} is above target. COGS is $${fbCogs.toLocaleString()} and labor is $${totalLabor.toLocaleString()} against $${totalSales.toLocaleString()} in sales.`
   return `Prime cost is within target at ${fmtPct(primeCostPct)}.`
 }
 

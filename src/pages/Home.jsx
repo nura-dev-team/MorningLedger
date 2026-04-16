@@ -113,8 +113,8 @@ const Home = () => {
       const totalSales = sales.reduce((s, r) => s + Number(r.total_sales), 0)
       const totalLabor = labor.reduce((s, r) => s + Number(r.total_labor), 0)
 
-      const foodBevCodes = glCodes.filter(g => ['food','liquor','wine','beer'].includes(g.category)).map(g => g.code)
-      const fbCogs = approved.filter(i => foodBevCodes.includes(i.gl_code)).reduce((s, i) => s + Number(i.amount), 0)
+      const allGlCodes = glCodes.map(g => g.code)
+      const fbCogs = approved.filter(i => allGlCodes.includes(i.gl_code)).reduce((s, i) => s + Number(i.amount), 0)
       const primeCostPct = totalSales > 0 ? ((fbCogs + totalLabor) / totalSales) * 100 : 0
       const fbCogsAllPct = totalSales > 0 ? (fbCogs / totalSales) * 100 : 0
       const laborPct = totalSales > 0 ? (totalLabor / totalSales) * 100 : 0
@@ -123,22 +123,21 @@ const Home = () => {
         const spent = approved.filter(i => i.gl_code === gl.code).reduce((s, i) => s + Number(i.amount), 0)
         return { ...gl, spent, remaining: Number(gl.monthly_budget) - spent, utilizationPct: gl.monthly_budget > 0 ? (spent / Number(gl.monthly_budget)) * 100 : 0 }
       })
-      const foodBudget = budgets.find(b => b.category === 'food')
-      const totalCogsBudget = budgets.filter(b => ['food','liquor','wine','beer'].includes(b.category)).reduce((s, b) => s + Number(b.monthly_budget), 0)
+      const totalBudget = budgets.reduce((s, b) => s + Number(b.monthly_budget), 0)
+      const totalSpent = budgets.reduce((s, b) => s + b.spent, 0)
+      const totalRemaining = totalBudget - totalSpent
 
       const weeklySales = sales.reduce((acc, s) => { acc[s.week_number || 1] = (acc[s.week_number || 1] || 0) + Number(s.total_sales); return acc }, {})
 
-      const foodCodes = glCodes.filter(g => g.category === 'food').map(g => g.code)
-      const bevCodes = glCodes.filter(g => ['liquor','wine','beer'].includes(g.category)).map(g => g.code)
-      const foodSpent = approved.filter(i => foodCodes.includes(i.gl_code)).reduce((s, i) => s + Number(i.amount), 0)
-      const bevSpent = approved.filter(i => bevCodes.includes(i.gl_code)).reduce((s, i) => s + Number(i.amount), 0)
+      const foodSpent = totalSpent
+      const bevSpent = 0
       const foodSales = sales.reduce((s, r) => s + Number(r.food_sales || 0), 0)
       const bevSales = sales.reduce((s, r) => s + Number(r.beverage_sales || 0), 0)
 
       setData({
         totalSales, totalLabor, fbCogs, fbCogsAllPct, laborPct, primeCostPct,
         primeCostTarget: activeProperty?.prime_cost_target || 62,
-        budgets, foodBudget, totalCogsBudget, weeklySales,
+        budgets, totalBudget, totalRemaining, totalSpent, weeklySales,
         recentTransactions: approved.slice(0, 5),
         pendingCount: pending.length, glCodes,
         foodSpent, bevSpent, foodSales, bevSales,
@@ -174,7 +173,7 @@ const Home = () => {
     generateDashboardNarrative({
       primeCostPct: data.primeCostPct, primeCostTarget: data.primeCostTarget,
       totalSales: data.totalSales, totalLabor: data.totalLabor, fbCogs: data.fbCogs,
-      foodBudgetRemaining: data.foodBudget?.remaining ?? 0, foodBudgetTotal: data.foodBudget ? Number(data.foodBudget.monthly_budget) : 0,
+      foodBudgetRemaining: data.totalRemaining ?? 0, foodBudgetTotal: data.totalBudget ?? 0,
       laborPct: data.laborPct, fbCogsPct: data.fbCogsAllPct, weeklyTrend,
       pendingCount: data.pendingCount, foodSpent: data.foodSpent, foodSales: data.foodSales, bevSpent: data.bevSpent, bevSales: data.bevSales,
     }).then(r => { setNarrative(r || null); setNarrativeLoading(false) })
@@ -187,7 +186,7 @@ const Home = () => {
   const hasData = data && hasRealData(data)
   const foodCostPct = data && data.foodSales > 0 ? (data.foodSpent / data.foodSales) * 100 : null
   const bevCostPct = data && data.bevSales > 0 ? (data.bevSpent / data.bevSales) * 100 : null
-  const cogsUtilPct = data && data.totalCogsBudget > 0 ? (data.fbCogs / data.totalCogsBudget) * 100 : 0
+  const cogsUtilPct = data && data.totalBudget > 0 ? (data.fbCogs / data.totalBudget) * 100 : 0
   const weekEntries = data ? Object.entries(data.weeklySales).sort(([a],[b]) => Number(a)-Number(b)) : []
   const maxWeekRev = weekEntries.length > 0 ? Math.max(...weekEntries.map(([,v]) => v)) : 1
   const statusKey = status === 'green' ? 'green' : status === 'orange' ? 'orange' : 'amber'
@@ -250,10 +249,10 @@ const Home = () => {
               {fmt(data.totalSales)}
             </div>
           </StatCard>
-          {/* Remaining Food Budget */}
-          <StatCard label="Remaining Food Budget" sub={data.foodBudget ? `of ${fmt(data.foodBudget.monthly_budget)} monthly budget` : '—'}>
+          {/* Remaining Budget */}
+          <StatCard label="Remaining Budget" sub={data.totalBudget > 0 ? `of ${fmt(data.totalBudget)} monthly budget` : '—'}>
             <div className="font-newsreader" style={{ fontSize: '24px', fontWeight: 400, letterSpacing: '-0.5px' }}>
-              {data.foodBudget ? fmt(data.foodBudget.remaining) : '$—'}
+              {data.totalBudget > 0 ? fmt(data.totalRemaining) : '$—'}
             </div>
           </StatCard>
         </div>
@@ -288,7 +287,7 @@ const Home = () => {
       )}
 
       {/* ── 5. COGS Spend vs Budget ── */}
-      {!loading && hasData && data.totalCogsBudget > 0 && (
+      {!loading && hasData && data.totalBudget > 0 && (
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r)', overflow: 'hidden', marginBottom: '14px' }}>
           <div style={{ padding: '16px 20px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.6px', textTransform: 'uppercase', color: 'var(--text-4)' }}>COGS Spend vs Budget</span>
@@ -296,14 +295,14 @@ const Home = () => {
           <div style={{ padding: '4px 20px 20px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '8px' }}>
               <span style={{ fontWeight: 500 }}>Total COGS</span>
-              <span style={{ color: 'var(--text-3)' }}>{fmt(data.fbCogs)} of {fmt(data.totalCogsBudget)} budget</span>
+              <span style={{ color: 'var(--text-3)' }}>{fmt(data.fbCogs)} of {fmt(data.totalBudget)} budget</span>
             </div>
             <div style={{ height: '12px', background: 'var(--surface-alt)', borderRadius: '4px', overflow: 'hidden' }}>
               <div style={{ height: '100%', width: `${Math.min(cogsUtilPct, 100)}%`, background: cogsUtilPct > 100 ? 'var(--orange)' : 'var(--green)', borderRadius: '4px', transition: 'width 0.6s cubic-bezier(0.22, 1, 0.36, 1)' }} />
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px', color: 'var(--text-3)', marginTop: '5px' }}>
               <span>{cogsUtilPct.toFixed(1)}% utilized</span>
-              <span>{fmt(data.totalCogsBudget - data.fbCogs)} remaining</span>
+              <span>{fmt(data.totalBudget - data.fbCogs)} remaining</span>
             </div>
           </div>
         </div>
@@ -455,9 +454,9 @@ const Home = () => {
       )}
 
       {/* ── 9. Bottom explain (data-driven) ── */}
-      {!loading && hasData && (data.foodBudget || weekEntries.length > 0) && (
+      {!loading && hasData && (data.totalBudget > 0 || weekEntries.length > 0) && (
         <Explain>
-          Remaining food budget: <strong>{data.foodBudget ? fmt(data.foodBudget.remaining) : '$—'}</strong>.
+          Remaining budget: <strong>{data.totalBudget > 0 ? fmt(data.totalRemaining) : '$—'}</strong>.
           {data.budgets.filter(b => b.spent === 0 && b.monthly_budget > 0).length > 0 && (
             <> {data.budgets.filter(b => b.spent === 0 && b.monthly_budget > 0).map(b => `${b.name}: ${fmt(b.monthly_budget)}`).join(', ')} untouched.</>
           )}
