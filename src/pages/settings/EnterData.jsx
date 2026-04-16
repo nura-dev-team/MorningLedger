@@ -2,10 +2,14 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
+import { extractSalesReport, extractLaborReport } from '../../lib/claudeApi'
 
 // ── Enter Data screen ─────────────────────────────────────────────────────────
-// Manual sales + labor entry + budget adjustment.
-// Will be replaced by POS/7shifts integrations in Phase 2.
+// Upload + AI extraction or manual entry for sales, labor, budgets, vendors.
+
+const EXTRACT_STEPS = ['Reading report', 'Extracting data', 'Mapping to dashboard']
+
+const DELIVERY_FREQ_OPTIONS = ['Daily', 'Weekly', 'Bi-weekly', 'Monthly']
 
 const TABS = ['sales', 'labor', 'budgets', 'vendors']
 
@@ -97,6 +101,114 @@ const EnterData = () => {
       setLaborForm({ period_start: '', period_end: '', total_labor: '' })
       setTimeout(() => setLaborSuccess(false), 3000)
     }
+  }
+
+  // ── Upload / AI extraction state ────────────────────────────────────────────
+  const [salesUploadMode,  setSalesUploadMode]  = useState('idle') // idle | processing | review
+  const [salesExtracted,   setSalesExtracted]   = useState([])
+  const [salesUploadError, setSalesUploadError] = useState(null)
+  const [salesAnimStep,    setSalesAnimStep]    = useState(0)
+  const [savingExtSales,   setSavingExtSales]   = useState(false)
+
+  const [laborUploadMode,  setLaborUploadMode]  = useState('idle')
+  const [laborExtracted,   setLaborExtracted]   = useState([])
+  const [laborUploadError, setLaborUploadError] = useState(null)
+  const [laborAnimStep,    setLaborAnimStep]    = useState(0)
+  const [savingExtLabor,   setSavingExtLabor]   = useState(false)
+
+  const fileToBase64 = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve({ base64: reader.result.toString().split(',')[1], mediaType: file.type })
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+
+  const runAnim = (setter) => {
+    const t1 = setTimeout(() => setter(1), 800)
+    const t2 = setTimeout(() => setter(2), 2000)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
+  }
+
+  const handleSalesUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    setSalesUploadMode('processing')
+    setSalesUploadError(null)
+    setSalesAnimStep(0)
+    const cleanup = runAnim(setSalesAnimStep)
+    try {
+      const { base64, mediaType } = await fileToBase64(file)
+      const result = await extractSalesReport(base64, mediaType)
+      cleanup()
+      setSalesExtracted(result.entries || [])
+      setSalesUploadMode('review')
+    } catch (err) {
+      cleanup()
+      setSalesUploadError(err.message || 'Could not read that file.')
+      setSalesUploadMode('idle')
+    }
+  }
+
+  const saveSalesExtracted = async () => {
+    if (!propertyId || salesExtracted.length === 0) return
+    setSavingExtSales(true)
+    const rows = salesExtracted.map(p => ({
+      property_id: propertyId,
+      date: p.date,
+      week_number: p.week_number || (p.date ? Math.ceil(new Date(p.date + 'T00:00:00').getDate() / 7) : null),
+      food_sales: p.food_sales != null ? parseFloat(p.food_sales) : null,
+      beverage_sales: p.beverage_sales != null ? parseFloat(p.beverage_sales) : null,
+      total_sales: parseFloat(p.total_sales) || 0,
+      entered_by: profile.id,
+    }))
+    const { error } = await supabase.from('sales_entries').upsert(rows, { onConflict: 'property_id,date' })
+    setSavingExtSales(false)
+    if (error) { setSalesUploadError(error.message); return }
+    setSalesSuccess(true)
+    setSalesExtracted([])
+    setSalesUploadMode('idle')
+    setTimeout(() => setSalesSuccess(false), 3000)
+  }
+
+  const handleLaborUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    setLaborUploadMode('processing')
+    setLaborUploadError(null)
+    setLaborAnimStep(0)
+    const cleanup = runAnim(setLaborAnimStep)
+    try {
+      const { base64, mediaType } = await fileToBase64(file)
+      const result = await extractLaborReport(base64, mediaType)
+      cleanup()
+      setLaborExtracted(result.entries || [])
+      setLaborUploadMode('review')
+    } catch (err) {
+      cleanup()
+      setLaborUploadError(err.message || 'Could not read that file.')
+      setLaborUploadMode('idle')
+    }
+  }
+
+  const saveLaborExtracted = async () => {
+    if (!propertyId || laborExtracted.length === 0) return
+    setSavingExtLabor(true)
+    const rows = laborExtracted.map(p => ({
+      property_id: propertyId,
+      period_start: p.period_start,
+      period_end: p.period_end,
+      total_labor: parseFloat(p.total_labor) || 0,
+      entered_by: profile.id,
+    }))
+    const { error } = await supabase.from('labor_entries').insert(rows)
+    setSavingExtLabor(false)
+    if (error) { setLaborUploadError(error.message); return }
+    setLaborSuccess(true)
+    setLaborExtracted([])
+    setLaborUploadMode('idle')
+    setTimeout(() => setLaborSuccess(false), 3000)
   }
 
   // ── Budgets state ──────────────────────────────────────────────────────────
@@ -238,7 +350,7 @@ const EnterData = () => {
       </div>
 
       <div style={{ fontSize: '13px', color: 'var(--text-3)', marginBottom: '18px', lineHeight: '1.6' }}>
-        Manually enter weekly sales, labor data, and monthly budgets. In Phase 2, POS and scheduling integrations will replace manual entry.
+        Upload a report and let NURA read it, or enter data manually below.
       </div>
 
       {/* ── Tab bar ── */}
@@ -265,42 +377,178 @@ const EnterData = () => {
         ))}
       </div>
 
-      {/* ── Sales form ── */}
+      {/* ── Sales tab ── */}
       {tab === 'sales' && (
-        <form onSubmit={submitSales}>
-          <div className="nura-card" style={{ marginBottom: '12px' }}>
-            <Field label="Date"           type="date"   value={salesForm.date}           onChange={handleSalesChange('date')}           required />
-            <Field label="Week number"    type="number" value={salesForm.week_number}    onChange={handleSalesChange('week_number')}    placeholder="e.g. 5" />
-            <Field label="Food sales"     type="number" value={salesForm.food_sales}     onChange={handleSalesChange('food_sales')}     placeholder="e.g. 3200.00" />
-            <Field label="Beverage sales" type="number" value={salesForm.beverage_sales} onChange={handleSalesChange('beverage_sales')} placeholder="e.g. 1400.00" />
-            <Field label="Total sales"    type="number" value={salesForm.total_sales}    onChange={handleSalesChange('total_sales')}    placeholder="Auto-filled or enter manually" required />
-          </div>
+        <div>
+          {/* Upload card */}
+          {salesUploadMode === 'idle' && (
+            <div className="nura-card" style={{ marginBottom: '16px', padding: '18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: 'var(--surface-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-2)" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                </div>
+                <div>
+                  <div style={{ fontSize: '15px', fontWeight: 600 }}>Upload Sales Report</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-3)' }}>CSV, PDF, or photo — NURA reads it</div>
+                </div>
+              </div>
+              <label className="btn-primary" style={{ width: '100%', textAlign: 'center', display: 'block', cursor: 'pointer' }}>
+                Upload
+                <input type="file" accept="image/*,application/pdf,.csv" capture="environment" onChange={handleSalesUpload} style={{ display: 'none' }} />
+              </label>
+              {salesUploadError && <div style={{ fontSize: '13px', color: 'var(--red)', marginTop: '10px' }}>{salesUploadError}</div>}
+            </div>
+          )}
 
-          {salesError   && <div style={{ fontSize: '13px', color: 'var(--red)',   marginBottom: '10px' }}>{salesError}</div>}
-          {salesSuccess && <div className="note-green" style={{ marginBottom: '10px' }}>✓ Sales entry saved.</div>}
+          {salesUploadMode === 'processing' && (
+            <div className="nura-card" style={{ padding: '28px', marginBottom: '16px' }}>
+              <div className="font-newsreader" style={{ fontSize: '20px', marginBottom: '16px', textAlign: 'center' }}>NURA is reading your report…</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {EXTRACT_STEPS.map((s, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0, background: i <= salesAnimStep ? (i < salesAnimStep ? 'var(--green)' : 'var(--amber)') : 'var(--surface-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.3s' }}>
+                      {i < salesAnimStep && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>}
+                      {i === salesAnimStep && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'white' }} />}
+                    </div>
+                    <div style={{ fontSize: '13px', color: i <= salesAnimStep ? 'var(--text)' : 'var(--text-4)' }}>{s}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-          <button type="submit" className="btn-primary" disabled={savingSales}>
-            {savingSales ? 'Saving…' : 'Save Sales Entry'}
-          </button>
-        </form>
+          {salesUploadMode === 'review' && (
+            <div className="nura-card" style={{ padding: '18px', marginBottom: '16px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--green)', marginBottom: '12px' }}>Extracted</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>Entries</div>
+                <div style={{ fontSize: '13px', fontWeight: 600 }}>{salesExtracted.length}</div>
+              </div>
+              {salesExtracted.length > 0 && (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>Date range</div>
+                    <div style={{ fontSize: '13px', fontWeight: 600 }}>{salesExtracted[0]?.date}{salesExtracted.length > 1 ? ` → ${salesExtracted[salesExtracted.length - 1]?.date}` : ''}</div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: '14px', fontWeight: 600 }}>Total revenue</div>
+                    <div style={{ fontSize: '14px', fontWeight: 600 }}>${salesExtracted.reduce((s, e) => s + (parseFloat(e.total_sales) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                  </div>
+                </>
+              )}
+              {salesUploadError && <div style={{ fontSize: '13px', color: 'var(--red)', marginTop: '10px' }}>{salesUploadError}</div>}
+              <button className="btn-primary" onClick={saveSalesExtracted} disabled={savingExtSales || salesExtracted.length === 0} style={{ marginTop: '14px', marginBottom: '8px' }}>
+                {savingExtSales ? 'Saving…' : 'Confirm & Save'}
+              </button>
+              <button onClick={() => { setSalesUploadMode('idle'); setSalesExtracted([]) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-4)', fontSize: '13px', display: 'block', textAlign: 'center', width: '100%', padding: '8px 0' }}>
+                Start over
+              </button>
+            </div>
+          )}
+
+          {salesSuccess && <div className="note-green" style={{ marginBottom: '10px' }}>✓ Sales data saved.</div>}
+
+          {/* Manual form */}
+          <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text-4)', marginBottom: '10px' }}>Or enter manually</div>
+          <form onSubmit={submitSales}>
+            <div className="nura-card" style={{ marginBottom: '12px' }}>
+              <Field label="Date"           type="date"   value={salesForm.date}           onChange={handleSalesChange('date')}           required />
+              <Field label="Week number"    type="number" value={salesForm.week_number}    onChange={handleSalesChange('week_number')}    placeholder="e.g. 5" />
+              <Field label="Food sales"     type="number" value={salesForm.food_sales}     onChange={handleSalesChange('food_sales')}     placeholder="e.g. 3200.00" />
+              <Field label="Beverage sales" type="number" value={salesForm.beverage_sales} onChange={handleSalesChange('beverage_sales')} placeholder="e.g. 1400.00" />
+              <Field label="Total sales"    type="number" value={salesForm.total_sales}    onChange={handleSalesChange('total_sales')}    placeholder="Auto-filled or enter manually" required />
+            </div>
+
+            {salesError && <div style={{ fontSize: '13px', color: 'var(--red)', marginBottom: '10px' }}>{salesError}</div>}
+
+            <button type="submit" className="btn-primary" disabled={savingSales}>
+              {savingSales ? 'Saving…' : 'Save Sales Entry'}
+            </button>
+          </form>
+        </div>
       )}
 
-      {/* ── Labor form ── */}
+      {/* ── Labor tab ── */}
       {tab === 'labor' && (
-        <form onSubmit={submitLabor}>
-          <div className="nura-card" style={{ marginBottom: '12px' }}>
-            <Field label="Period start" type="date"   value={laborForm.period_start} onChange={(e) => setLaborForm(f => ({ ...f, period_start: e.target.value }))} required />
-            <Field label="Period end"   type="date"   value={laborForm.period_end}   onChange={(e) => setLaborForm(f => ({ ...f, period_end:   e.target.value }))} required />
-            <Field label="Total labor"  type="number" value={laborForm.total_labor}  onChange={(e) => setLaborForm(f => ({ ...f, total_labor:  e.target.value }))} placeholder="e.g. 19053.00" required />
-          </div>
+        <div>
+          {/* Upload card */}
+          {laborUploadMode === 'idle' && (
+            <div className="nura-card" style={{ marginBottom: '16px', padding: '18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: 'var(--surface-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-2)" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                </div>
+                <div>
+                  <div style={{ fontSize: '15px', fontWeight: 600 }}>Upload Labor Report</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-3)' }}>CSV, PDF, or timesheet photo — NURA reads it</div>
+                </div>
+              </div>
+              <label className="btn-primary" style={{ width: '100%', textAlign: 'center', display: 'block', cursor: 'pointer' }}>
+                Upload
+                <input type="file" accept="image/*,application/pdf,.csv" capture="environment" onChange={handleLaborUpload} style={{ display: 'none' }} />
+              </label>
+              {laborUploadError && <div style={{ fontSize: '13px', color: 'var(--red)', marginTop: '10px' }}>{laborUploadError}</div>}
+            </div>
+          )}
 
-          {laborError   && <div style={{ fontSize: '13px', color: 'var(--red)',   marginBottom: '10px' }}>{laborError}</div>}
-          {laborSuccess && <div className="note-green" style={{ marginBottom: '10px' }}>✓ Labor entry saved.</div>}
+          {laborUploadMode === 'processing' && (
+            <div className="nura-card" style={{ padding: '28px', marginBottom: '16px' }}>
+              <div className="font-newsreader" style={{ fontSize: '20px', marginBottom: '16px', textAlign: 'center' }}>NURA is reading your report…</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {EXTRACT_STEPS.map((s, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0, background: i <= laborAnimStep ? (i < laborAnimStep ? 'var(--green)' : 'var(--amber)') : 'var(--surface-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.3s' }}>
+                      {i < laborAnimStep && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>}
+                      {i === laborAnimStep && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'white' }} />}
+                    </div>
+                    <div style={{ fontSize: '13px', color: i <= laborAnimStep ? 'var(--text)' : 'var(--text-4)' }}>{s}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-          <button type="submit" className="btn-primary" disabled={savingLabor}>
-            {savingLabor ? 'Saving…' : 'Save Labor Entry'}
-          </button>
-        </form>
+          {laborUploadMode === 'review' && (
+            <div className="nura-card" style={{ padding: '18px', marginBottom: '16px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--green)', marginBottom: '12px' }}>Extracted</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>Entries</div>
+                <div style={{ fontSize: '13px', fontWeight: 600 }}>{laborExtracted.length}</div>
+              </div>
+              {laborExtracted.map((p, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                  <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>{p.period_start} → {p.period_end}</div>
+                  <div style={{ fontSize: '13px', fontWeight: 600 }}>${Number(p.total_labor).toLocaleString(undefined, { minimumFractionDigits: 2 })}{p.unit === 'hours' ? ' (hours)' : ''}</div>
+                </div>
+              ))}
+              {laborUploadError && <div style={{ fontSize: '13px', color: 'var(--red)', marginTop: '10px' }}>{laborUploadError}</div>}
+              <button className="btn-primary" onClick={saveLaborExtracted} disabled={savingExtLabor || laborExtracted.length === 0} style={{ marginTop: '14px', marginBottom: '8px' }}>
+                {savingExtLabor ? 'Saving…' : 'Confirm & Save'}
+              </button>
+              <button onClick={() => { setLaborUploadMode('idle'); setLaborExtracted([]) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-4)', fontSize: '13px', display: 'block', textAlign: 'center', width: '100%', padding: '8px 0' }}>
+                Start over
+              </button>
+            </div>
+          )}
+
+          {laborSuccess && <div className="note-green" style={{ marginBottom: '10px' }}>✓ Labor data saved.</div>}
+
+          {/* Manual form */}
+          <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text-4)', marginBottom: '10px' }}>Or enter manually</div>
+          <form onSubmit={submitLabor}>
+            <div className="nura-card" style={{ marginBottom: '12px' }}>
+              <Field label="Period start" type="date"   value={laborForm.period_start} onChange={(e) => setLaborForm(f => ({ ...f, period_start: e.target.value }))} required />
+              <Field label="Period end"   type="date"   value={laborForm.period_end}   onChange={(e) => setLaborForm(f => ({ ...f, period_end:   e.target.value }))} required />
+              <Field label="Total labor"  type="number" value={laborForm.total_labor}  onChange={(e) => setLaborForm(f => ({ ...f, total_labor:  e.target.value }))} placeholder="e.g. 19053.00" required />
+            </div>
+
+            {laborError && <div style={{ fontSize: '13px', color: 'var(--red)', marginBottom: '10px' }}>{laborError}</div>}
+
+            <button type="submit" className="btn-primary" disabled={savingLabor}>
+              {savingLabor ? 'Saving…' : 'Save Labor Entry'}
+            </button>
+          </form>
+        </div>
       )}
 
       {/* ── Budgets form ── */}
@@ -436,12 +684,21 @@ const EnterData = () => {
                       ))}
                     </select>
                   </div>
-                  <Field
-                    label="Delivery frequency"
-                    value={vendorForm.delivery_frequency}
-                    onChange={(e) => setVendorForm((f) => ({ ...f, delivery_frequency: e.target.value }))}
-                    placeholder="e.g. Weekly"
-                  />
+                  <div style={{ marginBottom: '14px' }}>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text-4)', marginBottom: '8px' }}>
+                      Delivery Frequency
+                    </label>
+                    <select
+                      className="nura-input"
+                      value={vendorForm.delivery_frequency}
+                      onChange={(e) => setVendorForm((f) => ({ ...f, delivery_frequency: e.target.value }))}
+                    >
+                      <option value="">— Select —</option>
+                      {DELIVERY_FREQ_OPTIONS.map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  </div>
                   <div style={{ marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <label style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text-4)' }}>
                       Active
