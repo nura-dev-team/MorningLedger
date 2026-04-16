@@ -43,14 +43,7 @@ const TIMEZONES = [
   { value: 'Pacific/Honolulu',    label: 'Hawaii' },
 ]
 
-const DEFAULT_GL_CODES = [
-  { code: '', name: 'Food Purchases',     category: 'food',     monthly_budget: 0, sort_order: 1 },
-  { code: '', name: 'Liquor',             category: 'liquor',   monthly_budget: 0, sort_order: 2 },
-  { code: '', name: 'Wine',               category: 'wine',     monthly_budget: 0, sort_order: 3 },
-  { code: '', name: 'Beer',               category: 'beer',     monthly_budget: 0, sort_order: 4 },
-  { code: '', name: 'Operating Supplies', category: 'supplies', monthly_budget: 0, sort_order: 5 },
-  { code: '', name: 'Uniforms',           category: 'uniforms', monthly_budget: 0, sort_order: 6 },
-]
+const SUGGESTED_CATEGORIES = ['Food', 'Liquor', 'Wine', 'Beer', 'Operating Supplies', 'Uniforms', 'Paper Goods', 'Cleaning', 'Smallwares']
 
 // ── Label style reused across form fields ─────────────────────────────────────
 
@@ -96,7 +89,8 @@ const Onboarding = () => {
   const [createdProperty, setCreatedProperty] = useState(
     (profile?.property_id && profile?.properties) ? profile.properties : null
   )
-  const [budgets,         setBudgets]         = useState(DEFAULT_GL_CODES.map(g => ({ ...g })))
+  const [categories,      setCategories]      = useState([])
+  const [newCatName,      setNewCatName]      = useState('')
 
   // ── Step 2: Property ────────────────────────────────────────────────────────
   const [propForm,    setPropForm]    = useState({ name: '', timezone: 'America/New_York' })
@@ -233,28 +227,35 @@ const Onboarding = () => {
     navigate('/onboarding/who-sets-up')
   }
 
+  const addCategory = () => {
+    const name = newCatName.trim()
+    if (!name || categories.includes(name)) return
+    setCategories(prev => [...prev, name])
+    setNewCatName('')
+  }
+
+  const removeCategory = (name) => {
+    setCategories(prev => prev.filter(c => c !== name))
+  }
+
   const handleGl = async () => {
     if (!createdProperty) return
+    if (categories.length === 0) { setGlError('Add at least one category.'); return }
     setGlLoading(true)
     setGlError(null)
     const propertyId = createdProperty.id
 
-    // Upsert GL codes
-    const glRows = budgets.map(b => ({
+    const glRows = categories.map((name, i) => ({
       property_id:    propertyId,
-      code:           b.code,
-      name:           b.name,
-      category:       b.category,
-      monthly_budget: parseFloat(b.monthly_budget) || 0,
-      sort_order:     b.sort_order,
+      code:           '',
+      name,
+      category:       name.toLowerCase().replace(/\s+/g, '_'),
+      monthly_budget: 0,
+      sort_order:     i + 1,
     }))
 
-    // Use insert (not upsert) to avoid collisions when code is empty string
-    // Delete existing codes for this property first, then re-insert all
     await supabase.from('gl_codes').delete().eq('property_id', propertyId)
-    const { error: glErr } = await supabase
-      .from('gl_codes')
-      .insert(glRows)
+    const { error: glErr } = await supabase.from('gl_codes').insert(glRows)
 
     if (glErr) { setGlError(glErr.message); setGlLoading(false); return }
 
@@ -529,54 +530,84 @@ const Onboarding = () => {
           <div>
             <div className="font-newsreader" style={{ fontSize: '28px', marginBottom: '6px' }}>Spending categories</div>
             <div style={{ fontSize: '13px', color: 'var(--text-3)', marginBottom: '20px', lineHeight: '1.6' }}>
-              Set a monthly budget for each category. NURA will track your spend against these targets on your dashboard. You can add, rename, or adjust these anytime in Settings.
+              What do you spend money on? Add the categories that matter to your operation. You'll set budgets for each on your dashboard.
             </div>
 
-            {budgets.every(b => !b.monthly_budget) && (
-              <div className="note-amber" style={{ marginBottom: '14px' }}>
-                Set at least one budget so your dashboard shows remaining spend. Skip for now if you'd rather add these later.
+            {/* Added categories */}
+            {categories.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
+                {categories.map(name => (
+                  <div key={name} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '6px',
+                    background: 'var(--surface)', border: '1px solid var(--border)',
+                    borderRadius: '20px', padding: '6px 12px', fontSize: '13px', fontWeight: 500,
+                  }}>
+                    {name}
+                    <button
+                      onClick={() => removeCategory(name)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-4)', fontSize: '14px', padding: 0, lineHeight: 1 }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
 
+            {/* Add category input */}
             <div className="nura-card" style={{ marginBottom: '14px' }}>
-              {budgets.map((b, i) => (
-                <div
-                  key={b.sort_order}
-                  style={{
-                    padding: '12px 0',
-                    borderBottom: i < budgets.length - 1 ? '1px solid var(--border)' : 'none',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '12px',
-                  }}
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="text"
+                  className="nura-input"
+                  placeholder="e.g. Food, Liquor, Paper Goods"
+                  value={newCatName}
+                  onChange={e => setNewCatName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCategory() } }}
+                  style={{ flex: 1 }}
+                />
+                <button
+                  type="button"
+                  onClick={addCategory}
+                  disabled={!newCatName.trim()}
+                  className="btn-secondary"
+                  style={{ width: 'auto', flex: 'none', padding: '10px 16px', marginTop: 0 }}
                 >
-                  <div style={{ fontSize: '14px', fontWeight: '500', flex: 1 }}>{b.name}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span style={{ fontSize: '13px', color: 'var(--text-3)' }}>$</span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="1"
-                      placeholder="0"
-                      value={b.monthly_budget || ''}
-                      onChange={e => {
-                        const val = parseFloat(e.target.value) || 0
-                        setBudgets(prev => prev.map((x, j) => j === i ? { ...x, monthly_budget: val } : x))
-                      }}
-                      className="nura-input"
-                      style={{ width: '110px', padding: '8px 10px', fontSize: '13px', textAlign: 'right' }}
-                    />
-                    <span style={{ fontSize: '11px', color: 'var(--text-4)', marginLeft: '4px' }}>/mo</span>
-                  </div>
-                </div>
-              ))}
+                  Add
+                </button>
+              </div>
             </div>
+
+            {/* Suggestions */}
+            {categories.length < 3 && (
+              <div style={{ marginBottom: '14px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text-4)', marginBottom: '8px' }}>
+                  Common categories
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {SUGGESTED_CATEGORIES.filter(s => !categories.includes(s)).map(s => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setCategories(prev => [...prev, s])}
+                      style={{
+                        background: 'var(--surface-alt)', border: '1px solid var(--border)',
+                        borderRadius: '20px', padding: '5px 12px', fontSize: '12px', color: 'var(--text-2)',
+                        cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
+                        transition: 'border-color 0.15s',
+                      }}
+                    >
+                      + {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {glError && <div style={{ fontSize: '13px', color: 'var(--red)', marginBottom: '10px' }}>{glError}</div>}
 
-            <button className="btn-primary" onClick={handleGl} disabled={glLoading} style={{ marginBottom: '10px' }}>
-              {glLoading ? 'Saving…' : 'Save & Continue →'}
+            <button className="btn-primary" onClick={handleGl} disabled={glLoading || categories.length === 0} style={{ marginBottom: '10px' }}>
+              {glLoading ? 'Saving…' : `Save ${categories.length} ${categories.length === 1 ? 'category' : 'categories'} & Continue →`}
             </button>
             <button onClick={() => advance()} style={skipBtn}>
               Skip for now
