@@ -276,8 +276,8 @@ const Onboarding = () => {
 
   // ── Sales: upload handler ───────────────────────────────────────────────────
   const handleSalesUpload = async (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const files = Array.from(e.target.files || [])
+    if (files.length === 0) return
     e.target.value = ''
     setSalesMode('processing')
     setSalesError(null)
@@ -285,14 +285,18 @@ const Onboarding = () => {
     const cleanupAnim = runProcessingAnim(setSalesAnimStep)
 
     try {
-      const { base64, mediaType } = await fileToBase64(file)
-      const result = await extractSalesReport(base64, mediaType)
+      const allEntries = []
+      for (const file of files) {
+        const { base64, mediaType } = await fileToBase64(file)
+        const result = await extractSalesReport(base64, mediaType)
+        allEntries.push(...(result.entries || []))
+      }
       cleanupAnim()
-      setSalesExtracted(result.entries || [])
+      setSalesExtracted(allEntries)
       setSalesMode('review')
     } catch (err) {
       cleanupAnim()
-      setSalesError(err.message || 'Could not read that file. Try again or enter manually.')
+      setSalesError(err.message || 'Could not read those files. Try again or enter manually.')
       setSalesMode('choose')
     }
   }
@@ -324,8 +328,8 @@ const Onboarding = () => {
 
   // ── Labor: upload handler ───────────────────────────────────────────────────
   const handleLaborUpload = async (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const files = Array.from(e.target.files || [])
+    if (files.length === 0) return
     e.target.value = ''
     setLaborMode('processing')
     setLaborError(null)
@@ -333,14 +337,18 @@ const Onboarding = () => {
     const cleanupAnim = runProcessingAnim(setLaborAnimStep)
 
     try {
-      const { base64, mediaType } = await fileToBase64(file)
-      const result = await extractLaborReport(base64, mediaType)
+      const allEntries = []
+      for (const file of files) {
+        const { base64, mediaType } = await fileToBase64(file)
+        const result = await extractLaborReport(base64, mediaType)
+        allEntries.push(...(result.entries || []))
+      }
       cleanupAnim()
-      setLaborExtracted(result.entries || [])
+      setLaborExtracted(allEntries)
       setLaborMode('review')
     } catch (err) {
       cleanupAnim()
-      setLaborError(err.message || 'Could not read that file. Try again or enter manually.')
+      setLaborError(err.message || 'Could not read those files. Try again or enter manually.')
       setLaborMode('choose')
     }
   }
@@ -652,11 +660,11 @@ const Onboarding = () => {
                     </div>
                   </div>
                   <div style={{ fontSize: '12px', color: 'var(--text-3)', marginBottom: '14px', lineHeight: 1.5 }}>
-                    CSV, PDF, or photo of any sales report — NURA will read it automatically.
+                    CSV, PDF, or photo of any sales report. Multiple files OK — NURA reads them all.
                   </div>
                   <label className="btn-primary" style={{ width: '100%', textAlign: 'center', display: 'block', cursor: 'pointer' }}>
                     Upload
-                    <input type="file" accept="image/*,application/pdf,.csv" capture="environment" onChange={handleSalesUpload} style={{ display: 'none' }} />
+                    <input type="file" accept="image/*,application/pdf,.csv" multiple capture="environment" onChange={handleSalesUpload} style={{ display: 'none' }} />
                   </label>
                 </div>
 
@@ -801,11 +809,11 @@ const Onboarding = () => {
                     </div>
                   </div>
                   <div style={{ fontSize: '12px', color: 'var(--text-3)', marginBottom: '14px', lineHeight: 1.5 }}>
-                    CSV, PDF, or timesheet photo — NURA will read it.
+                    CSV, PDF, or timesheet photo. Multiple files OK — NURA reads them all.
                   </div>
                   <label className="btn-primary" style={{ width: '100%', textAlign: 'center', display: 'block', cursor: 'pointer' }}>
                     Upload
-                    <input type="file" accept="image/*,application/pdf,.csv" capture="environment" onChange={handleLaborUpload} style={{ display: 'none' }} />
+                    <input type="file" accept="image/*,application/pdf,.csv" multiple capture="environment" onChange={handleLaborUpload} style={{ display: 'none' }} />
                   </label>
                 </div>
 
