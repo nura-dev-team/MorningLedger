@@ -236,8 +236,21 @@ const AddInvoiceModal = ({ onClose, onSuccess }) => {
   }
 
   // ── Save from review state ─────────────────────────────────────────────
+  const [confirmError, setConfirmError] = useState(null)
+
   const handleConfirm = async () => {
     if (!extraction || saving) return
+    setConfirmError(null)
+
+    if (!extraction.invoice_date) {
+      setConfirmError('Invoice date is missing. Tap "Edit first" to add it.')
+      return
+    }
+    if (!extraction.total_amount || extraction.total_amount <= 0) {
+      setConfirmError('Invoice amount is missing or zero. Tap "Edit first" to fix it.')
+      return
+    }
+
     setSaving(true)
 
     const vendorId = newVendorId
@@ -257,7 +270,10 @@ const AddInvoiceModal = ({ onClose, onSuccess }) => {
     })
 
     setSaving(false)
-    if (error) { console.error('Insert error:', error); return }
+    if (error) {
+      setConfirmError(error.message)
+      return
+    }
     onSuccess?.()
     onClose()
   }
@@ -560,7 +576,12 @@ const AddInvoiceModal = ({ onClose, onSuccess }) => {
               )}
 
               {/* Actions */}
-              <div style={{ display: 'flex', gap: '8px', marginTop: '18px' }}>
+              {confirmError && (
+                <div style={{ fontSize: '13px', color: 'var(--red)', padding: '10px 14px', background: 'var(--red-bg)', borderRadius: 'var(--r-sm)', marginTop: '12px' }}>
+                  {confirmError}
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
                 <button className="btn-primary" onClick={handleConfirm} disabled={saving} style={{ flex: 1 }}>
                   {saving ? 'Saving…' : 'Confirm & Code'}
                 </button>
