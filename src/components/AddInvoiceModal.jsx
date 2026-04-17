@@ -250,6 +250,10 @@ const AddInvoiceModal = ({ onClose, onSuccess }) => {
       setConfirmError('Invoice amount is missing or zero. Tap "Edit first" to fix it.')
       return
     }
+    if (!extraction.suggested_gl_code) {
+      setConfirmError('No category assigned. Tap "Edit first" to pick one.')
+      return
+    }
 
     setSaving(true)
 
